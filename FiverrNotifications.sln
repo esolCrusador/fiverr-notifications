@@ -1,0 +1,49 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29609.76
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FiverrNotifications", "FiverrNotifications\FiverrNotifications.csproj", "{66CCD173-E5B6-40D9-A592-60C7021C1AF2}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FiverrTelegramNotifications.Data", "FiverrNotifications.Data\FiverrTelegramNotifications.Data.csproj", "{E4A94EED-516F-4718-911A-A7C9BA468C4F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FiverrNotifications.Logic", "FiverrNotifications.Logic\FiverrNotifications.Logic.csproj", "{A16FDF69-4DB8-430F-B2B1-D68A5B7A452C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FiverrNotifications.Telegram", "FiverrNotifications.Telegram\FiverrNotifications.Telegram.csproj", "{F65F7D51-CECD-4464-9FF4-DDF9ED46460C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FiverrNotifications.Client", "FiverrNotifications.Client\FiverrNotifications.Client.csproj", "{0D3E0D7A-B614-49FA-BE45-FD34D659726D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{66CCD173-E5B6-40D9-A592-60C7021C1AF2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66CCD173-E5B6-40D9-A592-60C7021C1AF2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66CCD173-E5B6-40D9-A592-60C7021C1AF2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66CCD173-E5B6-40D9-A592-60C7021C1AF2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E4A94EED-516F-4718-911A-A7C9BA468C4F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E4A94EED-516F-4718-911A-A7C9BA468C4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E4A94EED-516F-4718-911A-A7C9BA468C4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E4A94EED-516F-4718-911A-A7C9BA468C4F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A16FDF69-4DB8-430F-B2B1-D68A5B7A452C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A16FDF69-4DB8-430F-B2B1-D68A5B7A452C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A16FDF69-4DB8-430F-B2B1-D68A5B7A452C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A16FDF69-4DB8-430F-B2B1-D68A5B7A452C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F65F7D51-CECD-4464-9FF4-DDF9ED46460C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F65F7D51-CECD-4464-9FF4-DDF9ED46460C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F65F7D51-CECD-4464-9FF4-DDF9ED46460C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F65F7D51-CECD-4464-9FF4-DDF9ED46460C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D3E0D7A-B614-49FA-BE45-FD34D659726D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D3E0D7A-B614-49FA-BE45-FD34D659726D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D3E0D7A-B614-49FA-BE45-FD34D659726D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D3E0D7A-B614-49FA-BE45-FD34D659726D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {10E35FE1-2E83-4B20-BB77-BE00C943A7FE}
+	EndGlobalSection
+EndGlobal
