@@ -5,8 +5,8 @@ namespace FiverrNotifications.Logic.Models
 {
     public interface ISessionCommunicator
     {
-        Task SendMessage(string message);
         Task SendMessage(FiverrRequest r);
+        Task SendMessage(MessageType messageType);
         IObservable<string> Messages { get; }
     }
 }

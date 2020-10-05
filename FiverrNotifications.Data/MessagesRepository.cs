@@ -22,7 +22,7 @@ namespace FiverrTelegramNotifications.Data
 							INSERT INTO #Requests
 								(RequestId)
 							VALUES
-								({0})
+								{0}
 
 							DELETE FROM er
 								FROM fiverr.Request AS er

@@ -2,10 +2,8 @@
 using FiverrNotifications.Logic.Models;
 using FiverrNotifications.Logic.Repositories;
 using FiverrTelegramNotifications.Data.Models;
-using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -13,7 +11,7 @@ namespace FiverrTelegramNotifications.Data
 {
     public class ChatsRepository : IChatsRepository
     {
-        private const string SessionSelect = "SELECT s.SessionId, s.ChatId, s.BotId, s.ChatName, s.FiverrUsername, s.FiverrSession, s.FiverrToken, s.IsAuthRequested FROM fiverr.TelegramBotChat AS s";
+        private const string SessionSelect = "SELECT s.SessionId, s.ChatId, s.BotId, s.ChatName, s.FiverrUsername, s.FiverrSession, s.FiverrToken, s.IsAuthRequested, s.IsPaused FROM fiverr.TelegramBotChat AS s";
 
         private readonly SqlConnectionFactory _sqlConnectionFactory;
 
@@ -34,13 +32,14 @@ namespace FiverrTelegramNotifications.Data
                 "\r\n END",
                 new { botId, chatId }
             );
-            if (sessionId == -1)
-                return null;
+            if (sessionId == -1) // Session already exists
+                return await GetSession(botId, chatId);
 
             return new StoredSession
             {
                 SessionId = sessionId,
                 BotId = botId,
+                ChatId = chatId,
                 Username = null,
                 Session = null,
                 Token = null
@@ -75,13 +74,30 @@ namespace FiverrTelegramNotifications.Data
             return sessions.Select(Map).ToList();
         }
 
+        public async Task<StoredSession> GetSession(int botId, long chatId)
+        {
+            await using var sqlConnection = await _sqlConnectionFactory.Create();
+
+            var session = await sqlConnection.QueryFirstOrDefaultAsync<StoredSessionEntity>(
+                SessionSelect +
+                $"\r\nWHERE s.BotId = @botId AND s.ChatId = @chatId",
+                new { botId, chatId }
+            );
+
+            if (session == null)
+                return null;
+
+            return Map(session);
+        }
+
         public async Task<StoredSession> RemoveChat(int botId, long chatId)
         {
             await using var sqlConnection = await _sqlConnectionFactory.Create();
 
             var storedSession = await sqlConnection.QueryFirstOrDefaultAsync<StoredSessionEntity>(
                 SessionSelect +
-                $"\r\n WHERE s.BotId = @botId AND s.ChatId = @chatId"
+                $"\r\n WHERE s.BotId = @botId AND s.ChatId = @chatId",
+                new { botId, chatId }
             );
             if (storedSession == null)
                 return null;
@@ -100,7 +116,7 @@ namespace FiverrTelegramNotifications.Data
 
             await sqlConnection.QueryAsync(
                 "UPDATE s " +
-                "SET FiverrUsername = @fiverrUsername, FiverrSession = @fiverrSession, FiverrToken = @fiverrToken" +
+                "SET FiverrUsername = @fiverrUsername, FiverrSession = @fiverrSession, FiverrToken = @fiverrToken, IsPaused = @isPaused" +
                 "\r\nFROM fiverr.TelegramBotChat AS s" +
                 "\r\n WHERE s.SessionId = @sessionId",
                 new
@@ -108,7 +124,8 @@ namespace FiverrTelegramNotifications.Data
                     sessionId = storedSession.SessionId,
                     fiverrUsername = storedSession.Username,
                     fiverrSession = storedSession.Session,
-                    fiverrToken = storedSession.Token
+                    fiverrToken = storedSession.Token,
+                    isPaused = storedSession.IsPaused
                 }
             );
         }
@@ -120,7 +137,8 @@ namespace FiverrTelegramNotifications.Data
             ChatId = session.ChatId,
             Username = session.FiverrUsername,
             Session = session.FiverrSession,
-            Token = session.FiverrToken
+            Token = session.FiverrToken,
+            IsPaused = session.IsPaused
         };
 
         private static StoredSessionEntity Map(StoredSession session) => new StoredSessionEntity
@@ -130,7 +148,8 @@ namespace FiverrTelegramNotifications.Data
             ChatId = session.ChatId,
             FiverrUsername = session.Username,
             FiverrSession = session.Session,
-            FiverrToken = session.Token
+            FiverrToken = session.Token,
+            IsPaused = session.IsPaused
         };
     }
 }

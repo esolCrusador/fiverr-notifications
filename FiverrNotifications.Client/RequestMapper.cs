@@ -39,7 +39,8 @@ namespace FiverrNotifications.Client
                         Date = headers.Date.HasValue ? DateTime.Parse(row.Cells[headers.Date.Value].Text) : (DateTime?)null,
                         Request = headers.Request.HasValue ? row.Cells[headers.Request.Value].Text : null,
                         Duration = headers.Duration.HasValue ? row.Cells[headers.Duration.Value].Text : null,
-                        Budget = headers.Budget.HasValue ? row.Cells[headers.Budget.Value].Text : null
+                        Budget = headers.Budget.HasValue ? row.Cells[headers.Budget.Value].Text : null,
+                        Tags = (headers.Request.HasValue ? row.Cells[headers.Request.Value].Tags?.Select(t => t.Text)?.ToList() : null) ?? new List<string>(),
                     })
                 .ToList();
 

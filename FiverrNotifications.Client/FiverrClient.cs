@@ -32,7 +32,7 @@ namespace FiverrNotifications.Client
 
             if (!response.IsSuccessStatusCode)
             {
-                if (response.StatusCode == HttpStatusCode.Forbidden)
+                if (response.StatusCode == HttpStatusCode.Forbidden || response.StatusCode == HttpStatusCode.InternalServerError)
                     throw new WrongCredentialsException();
 
                 throw new HttpRequestException($"Request {HttpMethod.Get} ${url} failed.\r\nWith status: {response.StatusCode}.\r\nBody: {await response.Content.ReadAsStringAsync()}");

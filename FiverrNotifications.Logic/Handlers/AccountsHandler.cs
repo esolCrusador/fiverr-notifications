@@ -45,7 +45,7 @@ namespace FiverrNotifications.Logic.Handlers
                     else
                     {
                         sessionHandler = new AccountSessionHandler(session, _chatsRepository, _subscriptionFactory);
-                        sessionHandler.StartHandle();
+                        sessionHandler.Initialize();
                         subscription.Add(sessionHandler);
                         _accounts.TryAdd(session.SessionId, sessionHandler);
 

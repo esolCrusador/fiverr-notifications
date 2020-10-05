@@ -70,8 +70,10 @@ namespace FiverrNotifications.Logic.Handlers
                         var fiverrClient = _fiverrClientFactory.Create();
                         _subscriptions.Add(fiverrClient);
 
-                        var subscription = sessionsSubj.Select(sessionData => _interval
-                        .SelectAsync(async interval =>
+                        var subscription = _interval
+                        .Select(interval => sessionsSubj
+                        .Where(session => !session.IsPaused)
+                        .SelectAsync(async session  =>
                         {
                             _logger.LogDebug($"Handling Interval: {TimeSpan.FromTicks(interval)}. Session Data: {System.Text.Json.JsonSerializer.Serialize(session)}");
 
@@ -80,20 +82,35 @@ namespace FiverrNotifications.Logic.Handlers
 
                             try
                             {
-                                return await fiverrClient.GetRequsts(session.Username, session.Session.Value, session.Token);
+                                var requests = await fiverrClient.GetRequsts(session.Username, session.Session.Value, session.Token);
+
+                                if (session.IsAccountUpdated)
+                                {
+                                    await session.SessionCommunicator.SendMessage(MessageType.SuccessfullyConnected);
+                                    session.IsAccountUpdated = false;
+                                }
+
+                                return requests;
                             }
                             catch (WrongCredentialsException)
                             {
-                                await session.SessionCommunicator.SendMessage("Wrong credentials");
-                                return await Task.FromResult(new List<FiverrRequest>());
+                                await session.SessionCommunicator.SendMessage(MessageType.WrongCredentials);
                             }
+                            catch(Exception ex)
+                            {
+                                _logger.LogError(ex, ex.Message);
+                            }
+
+                            return await Task.FromResult(new List<FiverrRequest>());
                         }))
                         .Switch()
                         .SelectAsync(async requests => await _messageRepository.FindNewRequests(session.SessionId, requests))
                         .SelectAsync(async newRequests => await Task.WhenAll(newRequests.Select(async r => await session.SessionCommunicator.SendMessage(r))))
+                        .LogException(_logger)
                         .Subscribe();
 
                         _subscriptions.Add(subscription);
+                        _sessions.TryAdd(session.SessionId, (sessionsSubj, fiverrClient, subscription));
                     }
                 })
             );

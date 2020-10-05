@@ -3,6 +3,7 @@ using System;
 using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.InputFiles;
 
 namespace FiverrNotifications.Telegram
 {
@@ -22,14 +23,35 @@ namespace FiverrNotifications.Telegram
             _messageFactory = messageFactory;
         }
 
-        public async Task SendMessage(string message)
+        public async Task SendMessage(FiverrRequest r)
+        {
+            await SendMessage(_messageFactory.GetRequestMessage(r));
+        }
+
+        public async Task SendMessage(MessageType messageType)
+        {
+            await SendMessage(_messageFactory.GetStandardMessage(messageType));
+        }
+
+        private async Task SendMessage(string message)
         {
             await _botClient.SendTextMessageAsync(_chatId, message, ParseMode.MarkdownV2);
         }
 
-        public async Task SendMessage(FiverrRequest r)
+        private async Task SendMessage(TelegramMessage message)
         {
-            await SendMessage(_messageFactory.GetRequestMessage(r));
+            switch (message.Type)
+            {
+                case TelegramMessageType.Text:
+                    await _botClient.SendTextMessageAsync(_chatId, message.Text, ParseMode.MarkdownV2, disableWebPagePreview: true);
+                    break;
+                case TelegramMessageType.Photo:
+                    await _botClient.SendPhotoAsync(_chatId, new InputOnlineFile(message.ImageUrl), message.Text, ParseMode.MarkdownV2);
+                    break;
+                default:
+                    throw new NotSupportedException($"The {nameof(TelegramMessageType)}.{message.Type} is not supported.");
+            }
+            
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
@@ -15,10 +16,11 @@ namespace FiverrNotifications.Logic.Handlers
         private readonly IChatsRepository _chatsRepository;
         private readonly Subscription _subscription;
         private readonly BehaviorSubject<SessionData> _sessionSubject;
+        private readonly Subject<Unit> _cancelSubject;
 
         private bool _commandInProgress = false;
 
-        private readonly Dictionary<string, Func<ISessionCommunicator, IObservable<int>>> _supportedMessages;
+        private readonly Dictionary<string, Func<ISessionCommunicator, IObservable<Unit>>> _supportedMessages;
 
         public AccountSessionHandler(SessionData sessionData, IChatsRepository chatsRepository, SubscriptionFactory subscriptionFactory)
         {
@@ -28,37 +30,47 @@ namespace FiverrNotifications.Logic.Handlers
             _sessionSubject = new BehaviorSubject<SessionData>(sessionData);
             _subscription.Add(_sessionSubject);
             SessionChanges = _sessionSubject;
+            _cancelSubject = new Subject<Unit>();
+            _subscription.Add(_cancelSubject);
 
-            _supportedMessages = new Dictionary<string, Func<ISessionCommunicator, IObservable<int>>>(StringComparer.OrdinalIgnoreCase)
+            _supportedMessages = new Dictionary<string, Func<ISessionCommunicator, IObservable<Unit>>>(StringComparer.OrdinalIgnoreCase)
             {
-                {"Username", communicator => RequestUsername()},
-                {"Session", communicator => RequestSession()},
-                {"Token", communicator => RequestAuthToken()}
+                { "/start", communicator => Observable.Empty<Unit>() },
+                { "/stop", communicator => Observable.Empty<Unit>() },
+                { "/help", communicator => ShowHelp() },
+                {"/login", communicator =>  Login()},
+                {"/username", communicator => RequestUsername()},
+                {"/session", communicator => RequestSession()},
+                {"/token", communicator => RequestAuthToken()},
+                { "/cancel", communicator => Cancel() },
+                { "/pause", communicator => Pause() },
+                { "/resume", communicator => Resume() },
             };
         }
 
-        public void StartHandle()
+        private IObservable<Unit> Pause()
         {
-            if (_sessionData.Username == null)
+            return Observable.FromAsync(async () =>
             {
-                _subscription.Add(
-                    RequestUsername()
-                        .Select(r => RequestSession())
-                        .Concat()
-                        .Select(r => RequestAuthToken())
-                        .Concat()
-                        .Select(r => StartHandleMessages())
-                        .Concat()
-                        .Subscribe()
-                );
-            }
-            else
-            {
-                _subscription.Add(
-                    StartHandleMessages().Subscribe()
-                );
-            }
+                _sessionData.IsPaused = true;
+                await UpdateSession();
+            }).SelectAsync(_ => SendMessage(MessageType.Paused));
+        }
 
+        public IObservable<Unit> Resume()
+        {
+            return Observable.FromAsync(async () =>
+            {
+                _sessionData.IsPaused = false;
+                await UpdateSession();
+            }).SelectAsync(_ => SendMessage(MessageType.Resumed));
+        }
+
+        public void Initialize()
+        {
+            _subscription.Add(
+                StartHandleMessages().Subscribe()
+            );
 
         }
 
@@ -66,31 +78,48 @@ namespace FiverrNotifications.Logic.Handlers
 
         public IObservable<SessionData> SessionChanges;
 
-        private IObservable<int> StartHandleMessages()
+        private IObservable<Unit> ShowHelp()
+        {
+            return Observable.FromAsync(() => SendMessage(MessageType.Help));
+        }
+
+        private IObservable<Unit> Cancel()
+        {
+            return ObservableHelper.FromAction(() => _cancelSubject.OnNext(Unit.Default))
+                .SelectAsync(_ => SendMessage(MessageType.Cancelled));
+        }
+
+        private IObservable<Unit> StartHandleMessages()
         {
             return _sessionData.SessionCommunicator.Messages
-                .Where(m => !_commandInProgress)
+                .Where(m => !string.IsNullOrWhiteSpace(m) && m.StartsWith('/')) // Handling commands only
+                .Select(m => m.Trim())
                 .Select(m =>
                     {
-                        IObservable<int> result;
-                        if (!string.IsNullOrWhiteSpace(m) && _supportedMessages.TryGetValue(m.Trim(), out var handler))
+                        IObservable<Unit> result;
+                        if (_supportedMessages.TryGetValue(m.Trim(), out var handler))
                             result = handler(_sessionData.SessionCommunicator);
                         else
-                            result = Observable.Create<Task>(observer =>
-                            {
-                                var task = _sessionData.SessionCommunicator.SendMessage("Unknown command");
-                                observer.OnNext(task);
-                                observer.OnCompleted();
+                            result = Observable.FromAsync(() => SendMessage(MessageType.UnknownCommand));
 
-                                return task;
-                            }).SelectAsync();
+                        if (_commandInProgress && m != "/cancel")
+                            _cancelSubject.OnNext(Unit.Default);
 
                         return result;
                     })
                 .Merge();
         }
 
-        private IObservable<int> RequestUsername()
+        private IObservable<Unit> Login()
+        {
+            return RequestUsername()
+                        .Select(r => RequestSession())
+                        .Concat()
+                        .Select(r => RequestAuthToken())
+                        .Concat();
+        }
+
+        private IObservable<Unit> RequestUsername()
         {
             var getUsername = _sessionData.SessionCommunicator.Messages
                 .FirstAsync()
@@ -101,14 +130,16 @@ namespace FiverrNotifications.Logic.Handlers
                 });
 
             _commandInProgress = true;
-            return Observable.FromAsync(cancellation => _sessionData.SessionCommunicator.SendMessage("Please enter username"))
+            return Observable.FromAsync(cancellation => SendMessage(MessageType.RequestUsername))
                 .Select(r => getUsername)
                 .Concat()
                 .SelectAsync()
-                .Do(t => _commandInProgress = false);
+                .Finally(() => _commandInProgress = false)
+                .SelectAsync(_ => SendMessage(MessageType.UsernameSpecified))
+                .TakeUntil(_cancelSubject);
         }
 
-        private IObservable<int> RequestSession()
+        private IObservable<Unit> RequestSession()
         {
             var getSessionId = _sessionData.SessionCommunicator.Messages
                 .FirstAsync()
@@ -119,12 +150,15 @@ namespace FiverrNotifications.Logic.Handlers
                 });
 
             _commandInProgress = true;
-            var requestSession = Observable.FromAsync(cancellation => _sessionData.SessionCommunicator.SendMessage("Please enter session id"));
+            var requestSession = Observable.FromAsync(cancellation => SendMessage(MessageType.RequestSessionKey));
 
-            return requestSession.Select(r => getSessionId).Concat().Retry(5).Do(t => _commandInProgress = false);
+            return requestSession.Select(r => getSessionId).Concat().Retry(5)
+                .Finally(() => _commandInProgress = false)
+                .SelectAsync(_ => SendMessage(MessageType.SessionKeySpecified))
+                .TakeUntil(_cancelSubject);
         }
 
-        private IObservable<int> RequestAuthToken()
+        private IObservable<Unit> RequestAuthToken()
         {
             var getAuthToken = _sessionData.SessionCommunicator.Messages
                 .FirstAsync()
@@ -135,9 +169,12 @@ namespace FiverrNotifications.Logic.Handlers
                 });
 
             _commandInProgress = true;
-            var requestToken = Observable.FromAsync(cancellation => _sessionData.SessionCommunicator.SendMessage("Please enter hodor_creds cookie"));
+            var requestToken = Observable.FromAsync(cancellation => SendMessage(MessageType.RequestToken));
 
-            return requestToken.Select(r => getAuthToken).Concat().Do(t => _commandInProgress = false);
+            return requestToken.Select(r => getAuthToken).Concat()
+                .Finally(() => _commandInProgress = false)
+                .SelectAsync(_ => SendMessage(MessageType.TokenSpecified))
+                .TakeUntil(_cancelSubject);
         }
 
         private StoredSession GetStoredSession() =>
@@ -149,9 +186,13 @@ namespace FiverrNotifications.Logic.Handlers
                 Token = _sessionData.Token
             };
 
+        private async Task SendMessage(MessageType messageType) =>
+            await _sessionData.SessionCommunicator.SendMessage(messageType);
+
         private async Task UpdateSession()
         {
             await _chatsRepository.UpdateSession(GetStoredSession());
+            _sessionData.IsAccountUpdated = true;
             _sessionSubject.OnNext(_sessionData);
         }
     }

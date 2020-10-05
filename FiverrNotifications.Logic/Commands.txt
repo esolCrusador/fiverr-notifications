@@ -1,0 +1,10 @@
+﻿help - Help
+login - Requests your https://fiverr.com credentials
+username - Sets your user account username
+session - Fiverr session key
+token - Fiverr session token
+start - Starts bot
+stop - Removes your account
+pause - Pauses notifications
+resume - Resumes receiving notifications
+cancel - Cancels current action

@@ -23,7 +23,7 @@ namespace FiverrNotifications.Client.Models
         public bool? HintBottom { get; set; }
 
         [JsonProperty("tags", NullValueHandling = NullValueHandling.Ignore)]
-        public object[] Tags { get; set; }
+        public Tag[] Tags { get; set; }
 
         [JsonProperty("attachment", NullValueHandling = NullValueHandling.Ignore)]
         public object Attachment { get; set; }

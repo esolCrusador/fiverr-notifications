@@ -12,5 +12,6 @@ namespace FiverrTelegramNotifications.Data.Models
         public Guid? FiverrSession { get; set; }
         public string FiverrToken { get; set; }
         public bool IsAuthRequested { get; set; }
+        public bool IsPaused { get; set; }
     }
 }

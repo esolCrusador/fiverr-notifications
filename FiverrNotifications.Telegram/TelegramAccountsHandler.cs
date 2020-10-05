@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
@@ -13,7 +12,6 @@ using FiverrNotifications.Logic.Services;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Args;
-using Telegram.Bot.Types.Enums;
 
 namespace FiverrNotifications.Telegram
 {
@@ -57,8 +55,7 @@ namespace FiverrNotifications.Telegram
         public IObservable<SessionData> GetSessions()
         {
             return _chatsRepository.GetSessions(_clients.Keys).ToObservable()
-                .Select(sessions => sessions.Select(s => CreateSessionData(s)).ToObservable())
-                .Switch()
+                .SelectMany(sessions => sessions.Select(s => CreateSessionData(s)))
                 .Concat(_sessionChanges);
         }
 
@@ -69,7 +66,16 @@ namespace FiverrNotifications.Telegram
                     m.Value.Message.NewChatMembers?.Any(cm => cm.Id == m.Key) == true
                     || m.Value.Message.Text == "/start"
                     )
-                    .Select(m => AddChat(m.Key, m.Value.Message.Chat.Id))
+                    .SelectAsync(m => AddChat(m.Key, m.Value.Message.Chat.Id))
+                    .Where(sessionData => sessionData != null)
+                    .SelectAsync(sessionData => sessionData.SessionCommunicator.SendMessage(MessageType.Started))
+                    .Subscribe()
+            );
+
+            _subscriptions.Add(
+                Messages.Where(m => m.Value.Message.Text == "/stop")
+                    .SelectAsync(m => RemoveChat(m.Key, m.Value.Message.Chat.Id))
+                    .SelectAsync(sessionData => sessionData.SessionCommunicator.SendMessage(MessageType.Stopped))
                     .Subscribe()
             );
 
@@ -80,17 +86,25 @@ namespace FiverrNotifications.Telegram
             );
         }
 
-        private async Task AddChat(int botId, long chatId)
+        private async Task<SessionData> AddChat(int botId, long chatId)
         {
-            var sessionData = await _chatsRepository.AddChat(botId, chatId);
-            if (sessionData != null)
-                _sessionChanges.OnNext(CreateSessionData(sessionData));
+            var storedSession = await _chatsRepository.AddChat(botId, chatId);
+            if (storedSession == null)
+                return null;
+
+            var sessionData = CreateSessionData(storedSession);
+
+            _sessionChanges.OnNext(sessionData);
+            return sessionData;
         }
 
-        private async Task RemoveChat(int botId, long chatId)
+        private async Task<SessionData> RemoveChat(int botId, long chatId)
         {
-            var sessionData = await _chatsRepository.RemoveChat(botId, chatId);
-            _sessionChanges.OnNext(CreateSessionData(sessionData, true));
+            var storedSession = await _chatsRepository.RemoveChat(botId, chatId);
+            var sessionData = CreateSessionData(storedSession, true);
+
+            _sessionChanges.OnNext(sessionData);
+            return sessionData;
         }
 
         private SessionData CreateSessionData(StoredSession storedSession, bool isDeleted = false)
@@ -103,7 +117,8 @@ namespace FiverrNotifications.Telegram
                 Session = storedSession.Session,
                 Token = storedSession.Token,
                 IsDeleted = isDeleted,
-                SessionCommunicator = CreateSessionCommunicator(storedSession)
+                SessionCommunicator = CreateSessionCommunicator(storedSession),
+                IsPaused = storedSession.IsPaused
             };
         }
 
