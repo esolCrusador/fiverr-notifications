@@ -7,12 +7,14 @@ using System.Threading.Tasks;
 using FiverrNotifications.Logic.Helpers;
 using FiverrNotifications.Logic.Models;
 using FiverrNotifications.Logic.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace FiverrNotifications.Logic.Handlers
 {
     public class AccountSessionHandler : IDisposable
     {
         private readonly SessionData _sessionData;
+        private readonly ILogger<AccountSessionHandler> _logger;
         private readonly IChatsRepository _chatsRepository;
         private readonly Subscription _subscription;
         private readonly BehaviorSubject<SessionData> _sessionSubject;
@@ -22,9 +24,10 @@ namespace FiverrNotifications.Logic.Handlers
 
         private readonly Dictionary<string, Func<ISessionCommunicator, IObservable<Unit>>> _supportedMessages;
 
-        public AccountSessionHandler(SessionData sessionData, IChatsRepository chatsRepository, SubscriptionFactory subscriptionFactory)
+        public AccountSessionHandler(SessionData sessionData, ILogger<AccountSessionHandler> logger, IChatsRepository chatsRepository, SubscriptionFactory subscriptionFactory)
         {
             _sessionData = sessionData;
+            _logger = logger;
             _chatsRepository = chatsRepository;
             _subscription = subscriptionFactory.Create();
             _sessionSubject = new BehaviorSubject<SessionData>(sessionData);
@@ -69,7 +72,7 @@ namespace FiverrNotifications.Logic.Handlers
         public void Initialize()
         {
             _subscription.Add(
-                StartHandleMessages().Subscribe()
+                StartHandleMessages().LogException(_logger).Subscribe()
             );
 
         }

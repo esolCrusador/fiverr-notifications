@@ -23,6 +23,7 @@ namespace FiverrNotifications.Logic.Handlers
         private readonly IMessagesRepository _messageRepository;
         private readonly Subscription _subscriptions;
         private readonly IObservable<long> _interval;
+        private readonly TaskHelper _taskHelper;
         private readonly ConcurrentDictionary<int, (BehaviorSubject<SessionData> SessionData, IFiverrClient FiverrClient, IDisposable Subscription)> _sessions = new ConcurrentDictionary<int, (BehaviorSubject<SessionData> SessionData, IFiverrClient FiverrClient, IDisposable Subscription)>();
 
         public FiverrSessionsHandler(ILogger<FiverrSessionsHandler> logger, SubscriptionFactory subscriptionFactory, IFiverrClientFactory fiverrClientFactory, AccountsHandler accountsHandler, IMessagesRepository messageRepository)
@@ -32,6 +33,7 @@ namespace FiverrNotifications.Logic.Handlers
             _accountsService = accountsHandler;
             _messageRepository = messageRepository;
             _subscriptions = subscriptionFactory.Create();
+            _taskHelper = new TaskHelper(logger);
             _interval = Observable.Interval(TimeSpan.FromMinutes(1)).StartWith(0).Replay(1).RefCount();
         }
 
@@ -104,8 +106,10 @@ namespace FiverrNotifications.Logic.Handlers
                             return await Task.FromResult(new List<FiverrRequest>());
                         }))
                         .Switch()
-                        .SelectAsync(async requests => await _messageRepository.FindNewRequests(session.SessionId, requests))
-                        .SelectAsync(async newRequests => await Task.WhenAll(newRequests.Select(async r => await session.SessionCommunicator.SendMessage(r))))
+                        .SelectAsync(async requests => await _taskHelper.Safe(_messageRepository.FindNewRequests(session.SessionId, requests)))
+                        .Where(newRequests => newRequests != null)
+                        .SelectMany(newRequests => newRequests)
+                        .SelectAsync(async newRequest => await _taskHelper.Safe(session.SessionCommunicator.SendMessage(newRequest)))
                         .LogException(_logger)
                         .Subscribe();
 

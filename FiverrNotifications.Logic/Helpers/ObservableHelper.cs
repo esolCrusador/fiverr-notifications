@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Concurrent;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -32,7 +31,7 @@ namespace FiverrNotifications.Logic.Helpers
                 else
                     logger.LogError(ex, ex.Message);
 
-                return Observable.Empty<TElement>();
+                return observable.LogException(logger);
             });
         }
 

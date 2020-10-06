@@ -2,6 +2,7 @@ using FiverrNotifications.Client;
 using FiverrNotifications.Logic;
 using FiverrNotifications.Telegram;
 using FiverrTelegramNotifications.Data;
+using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -23,6 +24,8 @@ namespace FiverrNotifications
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddApplicationInsightsTelemetry();
+
             services.AddHostedService<BotHostedService>();
             services.AddHostedService<MaintananceHostedService>();
 

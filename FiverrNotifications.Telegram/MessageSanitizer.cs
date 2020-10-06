@@ -9,7 +9,7 @@ namespace FiverrNotifications.Telegram
         private readonly Regex _sanitizeRegexp = new Regex("[\\s!@#$%^&*(),.?\":{}|<>-]", RegexOptions.Compiled);
         private readonly Regex _minimizeDashesRegexp = new Regex("-{2,}");
 
-        private readonly Regex _specialCharacters = new Regex("[\\[\\]()!.+=–-]", RegexOptions.Compiled);
+        private readonly Regex _specialCharacters = new Regex("[\\[\\]()!.+=#–-]", RegexOptions.Compiled);
 
         public string SanitizeUrlComponent(string part)
         {
