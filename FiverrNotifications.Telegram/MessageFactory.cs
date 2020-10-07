@@ -39,6 +39,9 @@ Contact http://t\.me/esolCrusador for more information\."
                 [MessageType.Paused] = TelegramMessage.TextMessage("Paused\\."),
                 [MessageType.Resumed] = TelegramMessage.TextMessage("Resumed\\."),
 
+                [MessageType.Muted] = TelegramMessage.TextMessage("Muted\\."),
+                [MessageType.Unmuted] = TelegramMessage.TextMessage("Unmuted\\."),
+
                 [MessageType.RequestUsername] = TelegramMessage.TextMessage("Please enter fiverr username\\."),
                 [MessageType.UsernameSpecified] = TelegramMessage.TextMessage("Usernames was succesfuly specified\\."),
 

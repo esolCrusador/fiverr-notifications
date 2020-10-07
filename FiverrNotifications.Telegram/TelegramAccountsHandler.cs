@@ -9,7 +9,6 @@ using FiverrNotifications.Logic.Helpers;
 using FiverrNotifications.Logic.Models;
 using FiverrNotifications.Logic.Repositories;
 using FiverrNotifications.Logic.Services;
-using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 
@@ -27,7 +26,7 @@ namespace FiverrNotifications.Telegram
         private Dictionary<int, TelegramBotClient> _clients;
         private IObservable<KeyValuePair<int, MessageEventArgs>> Messages => _messages ??= GetMessages();
 
-        public TelegramAccountsHandler(ILogger<TelegramAccountsHandler> logger, SubscriptionFactory subscriptionFactory, IChatsRepository chatsRepository, BotClientFactory botClientFactory, MessageFactory messageFactory)
+        public TelegramAccountsHandler(SubscriptionFactory subscriptionFactory, IChatsRepository chatsRepository, BotClientFactory botClientFactory, MessageFactory messageFactory)
         {
             _subscriptions = subscriptionFactory.Create();
             _sessionChanges = new Subject<SessionData>();
@@ -68,14 +67,14 @@ namespace FiverrNotifications.Telegram
                     )
                     .SelectAsync(m => AddChat(m.Key, m.Value.Message.Chat.Id))
                     .Where(sessionData => sessionData != null)
-                    .SelectAsync(sessionData => sessionData.SessionCommunicator.SendMessage(MessageType.Started))
+                    .SelectAsync(sessionData => sessionData.SessionCommunicator.SendMessage(MessageType.Started, true))
                     .Subscribe()
             );
 
             _subscriptions.Add(
                 Messages.Where(m => m.Value.Message.Text == "/stop")
                     .SelectAsync(m => RemoveChat(m.Key, m.Value.Message.Chat.Id))
-                    .SelectAsync(sessionData => sessionData.SessionCommunicator.SendMessage(MessageType.Stopped))
+                    .SelectAsync(sessionData => sessionData.SessionCommunicator.SendMessage(MessageType.Stopped, true))
                     .Subscribe()
             );
 
@@ -118,7 +117,8 @@ namespace FiverrNotifications.Telegram
                 Token = storedSession.Token,
                 IsDeleted = isDeleted,
                 SessionCommunicator = CreateSessionCommunicator(storedSession),
-                IsPaused = storedSession.IsPaused
+                IsPaused = storedSession.IsPaused,
+                IsMuted = storedSession.IsMuted
             };
         }
 

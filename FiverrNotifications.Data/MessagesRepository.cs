@@ -26,7 +26,8 @@ namespace FiverrTelegramNotifications.Data
 
 							DELETE FROM er
 								FROM fiverr.Request AS er
-								WHERE NOT EXISTS 
+								WHERE er.SessionId = @sessionId
+								AND NOT EXISTS 
 								(
 									SELECT TOP 1 1 FROM #Requests AS nr
 										WHERE nr.RequestId = er.RequestId AND er.SessionId = @sessionId

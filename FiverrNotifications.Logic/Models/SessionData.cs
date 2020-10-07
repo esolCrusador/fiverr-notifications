@@ -11,6 +11,7 @@ namespace FiverrNotifications.Logic.Models
         public string Token { get; set; }
         public bool IsDeleted { get; set; }
         public bool IsPaused { get; set; }
+        public bool IsMuted { get; set; }
         public bool IsAccountUpdated { get; set; }
         public ISessionCommunicator SessionCommunicator { get; set; }
     }

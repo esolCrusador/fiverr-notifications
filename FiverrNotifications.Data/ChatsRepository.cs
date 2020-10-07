@@ -11,7 +11,7 @@ namespace FiverrTelegramNotifications.Data
 {
     public class ChatsRepository : IChatsRepository
     {
-        private const string SessionSelect = "SELECT s.SessionId, s.ChatId, s.BotId, s.ChatName, s.FiverrUsername, s.FiverrSession, s.FiverrToken, s.IsAuthRequested, s.IsPaused FROM fiverr.TelegramBotChat AS s";
+        private const string SessionSelect = "SELECT s.SessionId, s.ChatId, s.BotId, s.ChatName, s.FiverrUsername, s.FiverrSession, s.FiverrToken, s.IsAuthRequested, s.IsPaused, s.IsMuted FROM fiverr.TelegramBotChat AS s";
 
         private readonly SqlConnectionFactory _sqlConnectionFactory;
 
@@ -116,7 +116,7 @@ namespace FiverrTelegramNotifications.Data
 
             await sqlConnection.QueryAsync(
                 "UPDATE s " +
-                "SET FiverrUsername = @fiverrUsername, FiverrSession = @fiverrSession, FiverrToken = @fiverrToken, IsPaused = @isPaused" +
+                "SET FiverrUsername = @fiverrUsername, FiverrSession = @fiverrSession, FiverrToken = @fiverrToken, IsPaused = @isPaused, IsMuted = @isMuted" +
                 "\r\nFROM fiverr.TelegramBotChat AS s" +
                 "\r\n WHERE s.SessionId = @sessionId",
                 new
@@ -125,7 +125,8 @@ namespace FiverrTelegramNotifications.Data
                     fiverrUsername = storedSession.Username,
                     fiverrSession = storedSession.Session,
                     fiverrToken = storedSession.Token,
-                    isPaused = storedSession.IsPaused
+                    isPaused = storedSession.IsPaused,
+                    isMuted = storedSession.IsMuted
                 }
             );
         }
@@ -138,7 +139,8 @@ namespace FiverrTelegramNotifications.Data
             Username = session.FiverrUsername,
             Session = session.FiverrSession,
             Token = session.FiverrToken,
-            IsPaused = session.IsPaused
+            IsPaused = session.IsPaused,
+            IsMuted = session.IsMuted
         };
 
         private static StoredSessionEntity Map(StoredSession session) => new StoredSessionEntity
@@ -149,7 +151,8 @@ namespace FiverrTelegramNotifications.Data
             FiverrUsername = session.Username,
             FiverrSession = session.Session,
             FiverrToken = session.Token,
-            IsPaused = session.IsPaused
+            IsPaused = session.IsPaused,
+            IsMuted = session.IsMuted
         };
     }
 }

@@ -8,3 +8,5 @@ stop - Removes your account
 pause - Pauses notifications
 resume - Resumes receiving notifications
 cancel - Cancels current action
+mute - Mutes notification
+unmute - Unmutes notification

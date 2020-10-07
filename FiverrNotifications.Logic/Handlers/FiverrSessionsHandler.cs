@@ -88,7 +88,7 @@ namespace FiverrNotifications.Logic.Handlers
 
                                 if (session.IsAccountUpdated)
                                 {
-                                    await session.SessionCommunicator.SendMessage(MessageType.SuccessfullyConnected);
+                                    await session.SessionCommunicator.SendMessage(MessageType.SuccessfullyConnected, !session.IsMuted);
                                     session.IsAccountUpdated = false;
                                 }
 
@@ -96,7 +96,7 @@ namespace FiverrNotifications.Logic.Handlers
                             }
                             catch (WrongCredentialsException)
                             {
-                                await session.SessionCommunicator.SendMessage(MessageType.WrongCredentials);
+                                await session.SessionCommunicator.SendMessage(MessageType.WrongCredentials, !session.IsMuted);
                             }
                             catch(Exception ex)
                             {
@@ -109,7 +109,7 @@ namespace FiverrNotifications.Logic.Handlers
                         .SelectAsync(async requests => await _taskHelper.Safe(_messageRepository.FindNewRequests(session.SessionId, requests)))
                         .Where(newRequests => newRequests != null)
                         .SelectMany(newRequests => newRequests)
-                        .SelectAsync(async newRequest => await _taskHelper.Safe(session.SessionCommunicator.SendMessage(newRequest)))
+                        .SelectAsync(async newRequest => await _taskHelper.Safe(session.SessionCommunicator.SendMessage(newRequest, !session.IsMuted)))
                         .LogException(_logger)
                         .Subscribe();
 

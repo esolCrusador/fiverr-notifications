@@ -22,7 +22,7 @@ namespace FiverrNotifications.Logic.Handlers
 
         private bool _commandInProgress = false;
 
-        private readonly Dictionary<string, Func<ISessionCommunicator, IObservable<Unit>>> _supportedMessages;
+        private readonly Dictionary<string, Func<IObservable<Unit>>> _supportedMessages;
 
         public AccountSessionHandler(SessionData sessionData, ILogger<AccountSessionHandler> logger, IChatsRepository chatsRepository, SubscriptionFactory subscriptionFactory)
         {
@@ -36,18 +36,20 @@ namespace FiverrNotifications.Logic.Handlers
             _cancelSubject = new Subject<Unit>();
             _subscription.Add(_cancelSubject);
 
-            _supportedMessages = new Dictionary<string, Func<ISessionCommunicator, IObservable<Unit>>>(StringComparer.OrdinalIgnoreCase)
+            _supportedMessages = new Dictionary<string, Func<IObservable<Unit>>>(StringComparer.OrdinalIgnoreCase)
             {
-                { "/start", communicator => Observable.Empty<Unit>() },
-                { "/stop", communicator => Observable.Empty<Unit>() },
-                { "/help", communicator => ShowHelp() },
-                {"/login", communicator =>  Login()},
-                {"/username", communicator => RequestUsername()},
-                {"/session", communicator => RequestSession()},
-                {"/token", communicator => RequestAuthToken()},
-                { "/cancel", communicator => Cancel() },
-                { "/pause", communicator => Pause() },
-                { "/resume", communicator => Resume() },
+                { "/start", () => Observable.Empty<Unit>() },
+                { "/stop", () => Observable.Empty<Unit>() },
+                { "/help", () => ShowHelp() },
+                {"/login", () =>  Login()},
+                {"/username", () => RequestUsername()},
+                {"/session", () => RequestSession()},
+                {"/token", () => RequestAuthToken()},
+                { "/cancel", () => Cancel() },
+                { "/pause", () => Pause() },
+                { "/resume", () => Resume() },
+                { "/mute", () => Mute() },
+                { "/unmute", () => Unmute() },
             };
         }
 
@@ -67,6 +69,24 @@ namespace FiverrNotifications.Logic.Handlers
                 _sessionData.IsPaused = false;
                 await UpdateSession();
             }).SelectAsync(_ => SendMessage(MessageType.Resumed));
+        }
+
+        public IObservable<Unit> Mute()
+        {
+            return Observable.FromAsync(async () =>
+            {
+                _sessionData.IsMuted = true;
+                await UpdateSession();
+            }).SelectAsync(_ => SendMessage(MessageType.Muted));
+        }
+
+        public IObservable<Unit> Unmute()
+        {
+            return Observable.FromAsync(async () =>
+            {
+                _sessionData.IsMuted = false;
+                await UpdateSession();
+            }).SelectAsync(_ => SendMessage(MessageType.Unmuted));
         }
 
         public void Initialize()
@@ -101,7 +121,7 @@ namespace FiverrNotifications.Logic.Handlers
                     {
                         IObservable<Unit> result;
                         if (_supportedMessages.TryGetValue(m.Trim(), out var handler))
-                            result = handler(_sessionData.SessionCommunicator);
+                            result = handler();
                         else
                             result = Observable.FromAsync(() => SendMessage(MessageType.UnknownCommand));
 
@@ -186,11 +206,13 @@ namespace FiverrNotifications.Logic.Handlers
                 SessionId = _sessionData.SessionId,
                 Username = _sessionData.Username,
                 Session = _sessionData.Session,
-                Token = _sessionData.Token
+                Token = _sessionData.Token,
+                IsPaused = _sessionData.IsPaused,
+                IsMuted = _sessionData.IsMuted
             };
 
         private async Task SendMessage(MessageType messageType) =>
-            await _sessionData.SessionCommunicator.SendMessage(messageType);
+            await _sessionData.SessionCommunicator.SendMessage(messageType, !_sessionData.IsMuted);
 
         private async Task UpdateSession()
         {

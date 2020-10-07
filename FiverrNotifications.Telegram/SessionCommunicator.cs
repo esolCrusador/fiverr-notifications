@@ -23,30 +23,30 @@ namespace FiverrNotifications.Telegram
             _messageFactory = messageFactory;
         }
 
-        public async Task SendMessage(FiverrRequest r)
+        public async Task SendMessage(FiverrRequest r, bool notify)
         {
-            await SendMessage(_messageFactory.GetRequestMessage(r));
+            await SendMessage(_messageFactory.GetRequestMessage(r), notify);
         }
 
-        public async Task SendMessage(MessageType messageType)
+        public async Task SendMessage(MessageType messageType, bool notify)
         {
-            await SendMessage(_messageFactory.GetStandardMessage(messageType));
+            await SendMessage(_messageFactory.GetStandardMessage(messageType), notify);
         }
 
-        private async Task SendMessage(string message)
+        private async Task SendMessage(string message, bool notify)
         {
-            await _botClient.SendTextMessageAsync(_chatId, message, ParseMode.MarkdownV2);
+            await _botClient.SendTextMessageAsync(_chatId, message, ParseMode.MarkdownV2, disableNotification: !notify);
         }
 
-        private async Task SendMessage(TelegramMessage message)
+        private async Task SendMessage(TelegramMessage message, bool notify)
         {
             switch (message.Type)
             {
                 case TelegramMessageType.Text:
-                    await _botClient.SendTextMessageAsync(_chatId, message.Text, ParseMode.MarkdownV2, disableWebPagePreview: true);
+                    await _botClient.SendTextMessageAsync(_chatId, message.Text, ParseMode.MarkdownV2, disableWebPagePreview: true, disableNotification: !notify);
                     break;
                 case TelegramMessageType.Photo:
-                    await _botClient.SendPhotoAsync(_chatId, new InputOnlineFile(message.ImageUrl), message.Text, ParseMode.MarkdownV2);
+                    await _botClient.SendPhotoAsync(_chatId, new InputOnlineFile(message.ImageUrl), message.Text, ParseMode.MarkdownV2, disableNotification: !notify);
                     break;
                 default:
                     throw new NotSupportedException($"The {nameof(TelegramMessageType)}.{message.Type} is not supported.");

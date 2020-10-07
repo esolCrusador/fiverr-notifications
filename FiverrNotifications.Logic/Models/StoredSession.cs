@@ -11,5 +11,6 @@ namespace FiverrNotifications.Logic.Models
         public string Token { get; set; }
         public int BotId { get; set; }
         public bool IsPaused { get; set; }
+        public bool IsMuted { get; set; }
     }
 }

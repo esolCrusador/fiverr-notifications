@@ -8,6 +8,9 @@
     Resumed,
     Paused,
 
+    Muted,
+    Unmuted,
+
     RequestUsername,
     UsernameSpecified,
 
