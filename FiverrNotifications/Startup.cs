@@ -29,9 +29,11 @@ namespace FiverrNotifications
             services.AddHostedService<BotHostedService>();
             services.AddHostedService<MaintananceHostedService>();
 
+            services.AddSingleton<ResourceResolver>();
+
             services.BootstrapLogic();
             services.BootstrapData(s => s.GetRequiredService<IConfiguration>().GetConnectionString("Database"));
-            services.BootstrapTelegram();
+            services.BootstrapTelegram(s => s.GetRequiredService<ResourceResolver>());
             services.BootstrapFiverrClient();
 
             services.AddControllers();

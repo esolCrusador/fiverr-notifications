@@ -16,5 +16,8 @@
     <ProjectReference Include="..\FiverrNotifications.Telegram\FiverrNotifications.Telegram.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Images\SessionKeyGuide.jpg" />
+  </ItemGroup>
 
 </Project>

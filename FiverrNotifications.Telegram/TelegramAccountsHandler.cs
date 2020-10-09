@@ -19,6 +19,7 @@ namespace FiverrNotifications.Telegram
         private readonly IChatsRepository _chatsRepository;
         private readonly BotClientFactory _botClientFactory;
         private readonly MessageFactory _messageFactory;
+        private readonly IResourceResolver _resourceResolver;
         private readonly Subscription _subscriptions;
 
         private readonly Subject<SessionData> _sessionChanges;
@@ -26,7 +27,7 @@ namespace FiverrNotifications.Telegram
         private Dictionary<int, TelegramBotClient> _clients;
         private IObservable<KeyValuePair<int, MessageEventArgs>> Messages => _messages ??= GetMessages();
 
-        public TelegramAccountsHandler(SubscriptionFactory subscriptionFactory, IChatsRepository chatsRepository, BotClientFactory botClientFactory, MessageFactory messageFactory)
+        public TelegramAccountsHandler(SubscriptionFactory subscriptionFactory, IChatsRepository chatsRepository, BotClientFactory botClientFactory, MessageFactory messageFactory, IResourceResolver resourceResolver)
         {
             _subscriptions = subscriptionFactory.Create();
             _sessionChanges = new Subject<SessionData>();
@@ -35,6 +36,7 @@ namespace FiverrNotifications.Telegram
             _chatsRepository = chatsRepository;
             _botClientFactory = botClientFactory;
             _messageFactory = messageFactory;
+            this._resourceResolver = resourceResolver;
         }
 
         public async Task InitializeAsync()
@@ -151,7 +153,8 @@ namespace FiverrNotifications.Telegram
                 _clients[botId],
                 Messages.Where(m => m.Key == botId && m.Value.Message.Chat.Id == chatId)
                 .Select(m => m.Value.Message.Text),
-                _messageFactory
+                _messageFactory,
+                _resourceResolver
             );
 
         public void Dispose()
