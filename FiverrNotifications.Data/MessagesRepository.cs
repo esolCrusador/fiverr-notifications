@@ -46,6 +46,11 @@ namespace FiverrTelegramNotifications.Data
 							SELECT RequestId, @sessionId
 								FROM #Requests
 
+							UPDATE s
+								SET s.NotificationsCount = s.NotificationsCount + (SELECT COUNT(*) FROM #Requests)
+								FROM fiverr.TelegramBotChat AS s 
+								WHERE s.SessionId = @sessionId
+
 							COMMIT TRANSACTION
 
 							SELECT RequestId FROM #Requests

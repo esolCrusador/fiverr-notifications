@@ -45,8 +45,10 @@ Contact http://t\.me/esolCrusador for more information\."
                 [MessageType.RequestUsername] = TelegramMessage.TextMessage("Please enter fiverr username\\."),
                 [MessageType.UsernameSpecified] = TelegramMessage.TextMessage("Usernames was succesfuly specified\\."),
 
-                [MessageType.RequestSessionKey] = TelegramMessage.TextMessage("Please enter \\_fiverr\\_session\\_key\\." +
-                "\r\n Open Chrome, login to [fiverr](https://fiverr.com), press F12, select *Application* tab, select *Cookie* section, filter by *\\_fiverr\\_session\\_key*, copy *Value*, send it here\\."),
+                [MessageType.RequestSessionKey] = TelegramMessage.PhotoMessage("Please enter \\_fiverr\\_session\\_key\\." +
+                "\r\n Open Chrome, login to [fiverr](https://fiverr.com), press F12 or Fn\\+F12 to open console\\." +
+                "\r\n1\\. Select *Application* tab\\.\r\n2\\. Select *Cookie* section\\.\r\n3\\. Select *fiverr* tab\\.\r\n4\\. Filter with *\\_fiverr\\_session\\_key*\\.\r\n5\\. Copy *Value* and send to Telegram\\.",
+                "https://fiverr-notifications.azurewebsites.net/SessionKeyGuide.jpg"),
                 [MessageType.SessionKeySpecified] = TelegramMessage.TextMessage("Session key was successfuly specified\\."),
 
                 [MessageType.RequestToken] = TelegramMessage.TextMessage("Please enter hodor\\_creds\\." +
@@ -62,7 +64,7 @@ Contact http://t\.me/esolCrusador for more information\."
         }
         public string GetRequestMessage(FiverrRequest request) =>
             $"Request *{_messageSanitizer.EscapeString(request.Budget)}* for *{_messageSanitizer.EscapeString(request.Duration)}*\\." +
-            (request.Tags.Count > 0 ? $"\r\n{string.Join(" ", request.Tags.Select(tag => _messageSanitizer.EscapeString($"\\#{tag}")))}" : string.Empty) +
+            (request.Tags.Count > 0 ? $"\r\n{string.Join(" ", request.Tags.Select(tag => _messageSanitizer.EscapeString($"{_messageSanitizer.EscapeString($"#{tag.Trim('#')}")}")))}" : string.Empty) +
             $"\r\nDescription:\r\n{_messageSanitizer.EscapeString(request.Request)}";
 
         public TelegramMessage GetStandardMessage(MessageType messageType)

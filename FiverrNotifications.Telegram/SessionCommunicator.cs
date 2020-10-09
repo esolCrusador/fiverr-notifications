@@ -18,8 +18,8 @@ namespace FiverrNotifications.Telegram
         public SessionCommunicator(long chatId, TelegramBotClient botClient, IObservable<string> messages, MessageFactory messageFactory)
         {
             _chatId = chatId;
-            _botClient = botClient;
-            Messages = messages;
+                _botClient = botClient;
+                Messages = messages;
             _messageFactory = messageFactory;
         }
 

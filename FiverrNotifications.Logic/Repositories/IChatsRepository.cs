@@ -11,5 +11,7 @@ namespace FiverrNotifications.Logic.Repositories
         Task<IReadOnlyCollection<BotData>> GetBots();
         Task<IReadOnlyCollection<StoredSession>> GetSessions(IReadOnlyCollection<int> botIds);
         Task UpdateSession(StoredSession storedSession);
+        
+        Task<SessionStatistics> GetSessionsStatistics();
     }
 }

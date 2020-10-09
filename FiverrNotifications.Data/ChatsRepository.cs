@@ -90,6 +90,33 @@ namespace FiverrTelegramNotifications.Data
             return Map(session);
         }
 
+        public async Task<SessionStatistics> GetSessionsStatistics()
+        {
+            await using var sqlConnection = await _sqlConnectionFactory.Create();
+
+            var statistics = await sqlConnection.QueryFirstAsync<SessionStatistics>(
+                @"
+SELECT 
+	SUM(s.IsLoggedIn) AS IsLoggedIn, 
+	SUM(s.IsPaused) AS IsPaused, 
+	SUM(s.IsMuted) AS IsMuted, 
+	SUM(s.NotificationsCount) AS NotificationsCount
+		FROM
+		(
+			SELECT 
+				CASE WHEN s.FiverrUsername IS NULL OR s.FiverrSession IS NULL OR s.FiverrToken IS NULL
+					THEN 1
+					ELSE 0 END AS IsLoggedIn,
+				CAST(s.IsPaused AS INT) AS IsPaused,
+				CAST(s.IsMuted AS INT) AS IsMuted,
+				s.NotificationsCount
+				FROM fiverr.TelegramBotChat AS s
+		) AS s"
+                );
+
+            return statistics;
+        }
+
         public async Task<StoredSession> RemoveChat(int botId, long chatId)
         {
             await using var sqlConnection = await _sqlConnectionFactory.Create();
