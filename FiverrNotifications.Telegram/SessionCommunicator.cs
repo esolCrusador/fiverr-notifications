@@ -1,61 +1,62 @@
 ﻿using FiverrNotifications.Logic.Models;
+using FiverrNotifications.Logic.Models.Messages;
+using FiverrNotifications.Telegram.Models;
 using System;
-using System.Reflection;
 using System.Threading.Tasks;
-using Telegram.Bot;
-using Telegram.Bot.Types.Enums;
-using Telegram.Bot.Types.InputFiles;
 
 namespace FiverrNotifications.Telegram
 {
     public class SessionCommunicator : ISessionCommunicator
     {
         private readonly long _chatId;
-        private readonly TelegramBotClient _botClient;
+        private readonly BotClientWrapper _botClient;
         private readonly MessageFactory _messageFactory;
-        private readonly IResourceResolver _resourceResolver;
+        private readonly MessageSender _messageSender;
 
         public IObservable<string> Messages { get; }
+        public IObservable<Location> LocationMessages { get; }
 
-        public SessionCommunicator(long chatId, TelegramBotClient botClient, IObservable<string> messages, MessageFactory messageFactory, IResourceResolver resourceResolver)
+        public IObservable<string> Replies { get; }
+
+        public SessionCommunicator(long chatId, BotClientWrapper botClient, IObservable<string> messages, IObservable<string> replies, IObservable<Location> locationMessages, MessageFactory messageFactory, MessageSender messageSender)
         {
             _chatId = chatId;
             _botClient = botClient;
             Messages = messages;
+            Replies = replies;
+            LocationMessages = locationMessages;
             _messageFactory = messageFactory;
-            _resourceResolver = resourceResolver;
+            _messageSender = messageSender;
         }
 
-        public async Task SendMessage(FiverrRequest r, bool notify)
+        public async Task<int> SendMessage(FiverrRequest r, bool notify)
         {
-            await SendMessage(_messageFactory.GetRequestMessage(r), notify);
+            return await SendMessage(_messageFactory.GetRequestMessage(r), notify);
         }
 
-        public async Task SendMessage(MessageType messageType, bool notify)
+        public async Task<int> SendMessage(StandardMessage messageType, bool notify)
         {
-            await SendMessage(_messageFactory.GetStandardMessage(messageType), notify);
+            return await SendMessage(_messageFactory.GetStandardMessage(messageType), notify);
         }
 
-        private async Task SendMessage(string message, bool notify)
+        private async Task<int> SendMessage(string message, bool notify)
         {
-            await _botClient.SendTextMessageAsync(_chatId, message, ParseMode.MarkdownV2, disableNotification: !notify);
+            return await _messageSender.SendMessage(_botClient, _chatId, message, notify);
         }
 
-        private async Task SendMessage(TelegramMessage message, bool notify)
+        public async Task<int> SendMessage(TelegramMessage message, bool notify)
         {
-            switch (message.Type)
-            {
-                case TelegramMessageType.Text:
-                    await _botClient.SendTextMessageAsync(_chatId, message.Text, ParseMode.MarkdownV2, disableWebPagePreview: true, disableNotification: !notify);
-                    break;
-                case TelegramMessageType.Photo:
+            return await _messageSender.SendMessage(_botClient, _chatId, message, notify);
+        }
 
-                    await _botClient.SendPhotoAsync(_chatId, new InputOnlineFile(_resourceResolver.GetResourceStream(message.ImageUrl)), message.Text, ParseMode.MarkdownV2, disableNotification: !notify);
-                    break;
-                default:
-                    throw new NotSupportedException($"The {nameof(TelegramMessageType)}.{message.Type} is not supported.");
-            }
+        public async Task<int> SendMessage(StandardMessage messageType, bool notify, string[] arguments)
+        {
+            return await SendMessage(_messageFactory.GetStandardMessage(messageType, arguments), notify);
+        }
 
+        public async Task DeleteMessage(int messageId)
+        {
+            await _botClient.DeleteMessageAsync(_chatId, messageId);
         }
     }
 }

@@ -10,3 +10,4 @@ resume - Resumes receiving notifications
 cancel - Cancels current action
 mute - Mutes notification
 unmute - Unmutes notification
+timezone - Share location to specify timezone

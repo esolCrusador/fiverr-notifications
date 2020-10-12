@@ -1,4 +1,4 @@
-﻿public enum MessageType
+﻿public enum StandardMessage
 {
     Help,
 
@@ -25,4 +25,8 @@
     Cancelled,
     UnknownCommand,
     WrongCredentials,
+
+    LocationForTimezone,
+    TimezoneSpecified,
+    CouldNotParseTime
 }

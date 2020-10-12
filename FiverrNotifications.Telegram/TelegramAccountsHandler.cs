@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
@@ -9,8 +10,10 @@ using FiverrNotifications.Logic.Helpers;
 using FiverrNotifications.Logic.Models;
 using FiverrNotifications.Logic.Repositories;
 using FiverrNotifications.Logic.Services;
+using FiverrNotifications.Telegram.Models;
 using Telegram.Bot;
 using Telegram.Bot.Args;
+using Telegram.Bot.Types.Enums;
 
 namespace FiverrNotifications.Telegram
 {
@@ -19,15 +22,17 @@ namespace FiverrNotifications.Telegram
         private readonly IChatsRepository _chatsRepository;
         private readonly BotClientFactory _botClientFactory;
         private readonly MessageFactory _messageFactory;
-        private readonly IResourceResolver _resourceResolver;
+        private readonly MessageSender _messageSender;
         private readonly Subscription _subscriptions;
 
         private readonly Subject<SessionData> _sessionChanges;
         private IObservable<KeyValuePair<int, MessageEventArgs>> _messages;
-        private Dictionary<int, TelegramBotClient> _clients;
+        private IObservable<KeyValuePair<int, CallbackQueryEventArgs>> _callbackQuery;
+        private Dictionary<int, BotClientWrapper> _clients;
         private IObservable<KeyValuePair<int, MessageEventArgs>> Messages => _messages ??= GetMessages();
+        private IObservable<KeyValuePair<int, CallbackQueryEventArgs>> InlineResults => _callbackQuery ??= GetCallbackQuery();
 
-        public TelegramAccountsHandler(SubscriptionFactory subscriptionFactory, IChatsRepository chatsRepository, BotClientFactory botClientFactory, MessageFactory messageFactory, IResourceResolver resourceResolver)
+        public TelegramAccountsHandler(SubscriptionFactory subscriptionFactory, IChatsRepository chatsRepository, BotClientFactory botClientFactory, MessageFactory messageFactory, MessageSender messageSender)
         {
             _subscriptions = subscriptionFactory.Create();
             _sessionChanges = new Subject<SessionData>();
@@ -36,21 +41,19 @@ namespace FiverrNotifications.Telegram
             _chatsRepository = chatsRepository;
             _botClientFactory = botClientFactory;
             _messageFactory = messageFactory;
-            this._resourceResolver = resourceResolver;
+            this._messageSender = messageSender;
         }
 
         public async Task InitializeAsync()
         {
             var bots = await _chatsRepository.GetBots();
-            _clients = bots.ToDictionary(b => b.BotId, b => _botClientFactory.GetClient(b));
+            _clients = bots.ToDictionary(b => b.BotId, b => new BotClientWrapper(_botClientFactory.GetClient(b)));
 
             SubscribeOnAccounts();
         }
 
         public void Start()
         {
-            foreach (var client in _clients.Values)
-                client.StartReceiving();
         }
 
         public IObservable<SessionData> GetSessions()
@@ -69,14 +72,14 @@ namespace FiverrNotifications.Telegram
                     )
                     .SelectAsync(m => AddChat(m.Key, m.Value.Message.Chat.Id))
                     .Where(sessionData => sessionData != null)
-                    .SelectAsync(sessionData => sessionData.SessionCommunicator.SendMessage(MessageType.Started, true))
+                    .SelectAsync(sessionData => sessionData.SessionCommunicator.SendMessage(StandardMessage.Started, true))
                     .Subscribe()
             );
 
             _subscriptions.Add(
                 Messages.Where(m => m.Value.Message.Text == "/stop")
                     .SelectAsync(m => RemoveChat(m.Key, m.Value.Message.Chat.Id))
-                    .SelectAsync(sessionData => sessionData.SessionCommunicator.SendMessage(MessageType.Stopped, true))
+                    .SelectAsync(sessionData => sessionData.SessionCommunicator.SendMessage(StandardMessage.Stopped, true))
                     .Subscribe()
             );
 
@@ -133,29 +136,45 @@ namespace FiverrNotifications.Telegram
                     return m;
                 })
                 .Select(m => new KeyValuePair<int, MessageEventArgs>(c.Key, m)))
-                .Merge();
-        }
-
-        private IObservable<MessageEventArgs> GetMessages(TelegramBotClient botClient)
-        {
-            return Observable.FromEventPattern<MessageEventArgs>(h => botClient.OnMessage += h, h => botClient.OnMessage -= h)
-                .Select(eventPatter => eventPatter.EventArgs)
+                .Merge()
                 .Publish()
                 .RefCount();
+        }
+
+        private IObservable<KeyValuePair<int, CallbackQueryEventArgs>> GetCallbackQuery() => _clients
+                .Select(kvp =>
+                {
+                    var botClient = kvp.Value;
+                    return Observable.FromEventPattern<CallbackQueryEventArgs>(h => botClient.OnCallbackQuery += h, h => botClient.OnCallbackQuery -= h)
+                    .Select(r => new KeyValuePair<int, CallbackQueryEventArgs>(kvp.Key, r.EventArgs));
+                })
+                .Merge()
+                .Publish()
+                .RefCount();
+
+        private IObservable<MessageEventArgs> GetMessages(BotClientWrapper botClient)
+        {
+            return Observable.FromEventPattern<MessageEventArgs>(h => botClient.OnMessage += h, h => botClient.OnMessage -= h)
+                .Select(eventPatter => eventPatter.EventArgs);
         }
 
         private ISessionCommunicator CreateSessionCommunicator(StoredSession storedSession) =>
             CreateSessionCommunicator(storedSession.ChatId, storedSession.BotId);
 
-        private ISessionCommunicator CreateSessionCommunicator(long chatId, int botId) =>
-            new SessionCommunicator(
+        private ISessionCommunicator CreateSessionCommunicator(long chatId, int botId)
+        {
+            var messages = Messages.Where(m => m.Key == botId && m.Value.Message.Chat.Id == chatId).Select(m => m.Value.Message);
+
+            return new SessionCommunicator(
                 chatId,
                 _clients[botId],
-                Messages.Where(m => m.Key == botId && m.Value.Message.Chat.Id == chatId)
-                .Select(m => m.Value.Message.Text),
+                messages.Where(m => m.Type == MessageType.Text).Select(m => m.Text),
+                InlineResults.Where(r => r.Key == botId).Select(r => r.Value.CallbackQuery.Data),
+                messages.Where(m => m.Type == MessageType.Location).Select(m => new Location { Latitude = m.Location.Latitude, Longitude = m.Location.Longitude }),
                 _messageFactory,
-                _resourceResolver
+                _messageSender
             );
+        }
 
         public void Dispose()
         {
@@ -163,7 +182,7 @@ namespace FiverrNotifications.Telegram
 
             if (_clients != null)
                 foreach (var client in _clients.Values)
-                    client.StopReceiving();
+                    client.Dispose();
         }
     }
 }

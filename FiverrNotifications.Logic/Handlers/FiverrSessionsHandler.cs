@@ -88,7 +88,7 @@ namespace FiverrNotifications.Logic.Handlers
 
                                 if (session.IsAccountUpdated)
                                 {
-                                    await session.SessionCommunicator.SendMessage(MessageType.SuccessfullyConnected, !session.IsMuted);
+                                    await session.SessionCommunicator.SendMessage(StandardMessage.SuccessfullyConnected, !session.IsMuted);
                                     session.IsAccountUpdated = false;
                                 }
 
@@ -96,7 +96,7 @@ namespace FiverrNotifications.Logic.Handlers
                             }
                             catch (WrongCredentialsException)
                             {
-                                await session.SessionCommunicator.SendMessage(MessageType.WrongCredentials, !session.IsMuted);
+                                await session.SessionCommunicator.SendMessage(StandardMessage.WrongCredentials, !session.IsMuted);
                             }
                             catch(Exception ex)
                             {

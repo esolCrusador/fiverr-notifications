@@ -1,4 +1,5 @@
 ﻿using FiverrNotifications.Logic.Models;
+using FiverrNotifications.Logic.Models.Messages;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,15 +10,15 @@ namespace FiverrNotifications.Telegram
     {
         private readonly MessageSanitizer _messageSanitizer;
 
-        private readonly Dictionary<MessageType, TelegramMessage> _standatdMessages;
+        private readonly Dictionary<StandardMessage, TelegramMessage> _standatdMessages;
 
         public MessageFactory(MessageSanitizer messageSanitizer)
         {
             _messageSanitizer = messageSanitizer;
 
-            _standatdMessages = new Dictionary<MessageType, TelegramMessage>
+            _standatdMessages = new Dictionary<StandardMessage, TelegramMessage>
             {
-                [MessageType.Help] = TelegramMessage.TextMessage(
+                [StandardMessage.Help] = TelegramMessage.TextMessage(
 @"Fiverr notifications bot allows you to receive notifications about new fiverr requests\.
 To start it you must specify your username and copy paste your cookies\.
 Bot checks your requests page every 1 minute and sends notification if new request has arrived\.
@@ -33,35 +34,39 @@ Bot checks your requests page every 1 minute and sends notification if new reque
 /cancel \- Cancels current action
 Contact http://t\.me/esolCrusador for more information\."
 ),
-                [MessageType.Started] = TelegramMessage.TextMessage("Started\\. Use /login to enter [fiverr](https://fiverr\\.com) credentials\\."),
-                [MessageType.Stopped] = TelegramMessage.TextMessage("Stopped\\. Session data has been removed\\."),
+                [StandardMessage.Started] = TelegramMessage.TextMessage("Started\\. Use /login to enter [fiverr](https://fiverr\\.com) credentials\\."),
+                [StandardMessage.Stopped] = TelegramMessage.TextMessage("Stopped\\. Session data has been removed\\."),
 
-                [MessageType.Paused] = TelegramMessage.TextMessage("Paused\\."),
-                [MessageType.Resumed] = TelegramMessage.TextMessage("Resumed\\."),
+                [StandardMessage.Paused] = TelegramMessage.TextMessage("Paused\\."),
+                [StandardMessage.Resumed] = TelegramMessage.TextMessage("Resumed\\."),
 
-                [MessageType.Muted] = TelegramMessage.TextMessage("Muted\\."),
-                [MessageType.Unmuted] = TelegramMessage.TextMessage("Unmuted\\."),
+                [StandardMessage.Muted] = TelegramMessage.TextMessage("Muted\\."),
+                [StandardMessage.Unmuted] = TelegramMessage.TextMessage("Unmuted\\."),
 
-                [MessageType.RequestUsername] = TelegramMessage.TextMessage("Please enter fiverr username\\."),
-                [MessageType.UsernameSpecified] = TelegramMessage.TextMessage("Usernames was succesfuly specified\\."),
+                [StandardMessage.RequestUsername] = TelegramMessage.TextMessage("Please enter fiverr username\\."),
+                [StandardMessage.UsernameSpecified] = TelegramMessage.TextMessage("Usernames was succesfuly specified\\."),
 
-                [MessageType.RequestSessionKey] = TelegramMessage.PhotoMessage("Please enter \\_fiverr\\_session\\_key\\." +
+                [StandardMessage.RequestSessionKey] = TelegramMessage.PhotoMessage("Please enter \\_fiverr\\_session\\_key\\." +
                 "\r\n Open Chrome, login to [fiverr](https://fiverr.com), press F12 or Fn\\+F12 to open console\\." +
                 "\r\n1\\. Select *Application* tab\\.\r\n2\\. Select *Cookie* section\\.\r\n3\\. Select *fiverr* tab\\.\r\n4\\. Filter with *\\_fiverr\\_session\\_key*\\.\r\n5\\. Copy *Value* and send to Telegram\\.",
                 "Images\\SessionKeyGuide.jpg"),
-                [MessageType.SessionKeySpecified] = TelegramMessage.TextMessage("Session key was successfuly specified\\."),
+                [StandardMessage.SessionKeySpecified] = TelegramMessage.TextMessage("Session key was successfuly specified\\."),
 
-                [MessageType.RequestToken] = TelegramMessage.PhotoMessage("Please enter \\_fiverr\\_session\\_key\\." +
+                [StandardMessage.RequestToken] = TelegramMessage.PhotoMessage("Please enter \\_fiverr\\_session\\_key\\." +
                 "\r\n Open Chrome, login to [fiverr](https://fiverr.com), press F12 or Fn\\+F12 to open console\\." +
                 "\r\n1\\. Select *Application* tab\\.\r\n2\\. Select *Cookie* section\\.\r\n3\\. Select *fiverr* tab\\.\r\n4\\. Filter with *hodor\\_creds*\\.\r\n5\\. Copy *Value* and send to Telegram\\.",
                 "Images\\SessionKeyGuide.jpg"),
-                [MessageType.TokenSpecified] = TelegramMessage.TextMessage("Auth Token was successfuly specified\\."),
+                [StandardMessage.TokenSpecified] = TelegramMessage.TextMessage("Auth Token was successfuly specified\\."),
 
-                [MessageType.SuccessfullyConnected] = TelegramMessage.TextMessage("Successfully connected to feverr\\."),
+                [StandardMessage.SuccessfullyConnected] = TelegramMessage.TextMessage("Successfully connected to feverr\\."),
 
-                [MessageType.UnknownCommand] = TelegramMessage.TextMessage("Unknown command\\."),
-                [MessageType.Cancelled] = TelegramMessage.TextMessage("Cancelled\\."),
-                [MessageType.WrongCredentials] = TelegramMessage.TextMessage("Your credentials are wrong our expired\\. Please updare /username, /session, /token\\.")
+                [StandardMessage.UnknownCommand] = TelegramMessage.TextMessage("Unknown command\\."),
+                [StandardMessage.Cancelled] = TelegramMessage.TextMessage("Cancelled\\."),
+                [StandardMessage.WrongCredentials] = TelegramMessage.TextMessage("Your credentials are wrong our expired\\. Please updare /username, /session, /token\\."),
+
+                [StandardMessage.LocationForTimezone] = TelegramMessage.TextMessage("Please provide your local time to calculate your location"),
+                [StandardMessage.TimezoneSpecified] = TelegramMessage.TextMessage("Timezone \"{0}\" successfully specified\\."),
+                [StandardMessage.CouldNotParseTime] = TelegramMessage.TextMessage("Could not parse time\\."),
             };
         }
         public string GetRequestMessage(FiverrRequest request) =>
@@ -69,12 +74,17 @@ Contact http://t\.me/esolCrusador for more information\."
             (request.Tags.Count > 0 ? $"\r\n{string.Join(" ", request.Tags.Select(tag => $"{_messageSanitizer.EscapeString($"#{tag.Trim('#')}")}"))}" : string.Empty) +
             $"\r\nDescription:\r\n{_messageSanitizer.EscapeString(request.Request)}";
 
-        public TelegramMessage GetStandardMessage(MessageType messageType)
+        public TelegramMessage GetStandardMessage(StandardMessage messageType)
         {
             if (!_standatdMessages.TryGetValue(messageType, out var message))
-                throw new NotSupportedException($"Message type {nameof(MessageType)}.{messageType} is not supported");
+                throw new NotSupportedException($"Message type {nameof(StandardMessage)}.{messageType} is not supported");
 
             return message;
+        }
+
+        public TelegramMessage GetStandardMessage(StandardMessage messageType, string[] arguments)
+        {
+            return GetStandardMessage(messageType).Format(arguments.Select(arg => _messageSanitizer.EscapeString(arg)).ToArray());
         }
     }
 }

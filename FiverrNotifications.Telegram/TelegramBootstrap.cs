@@ -13,6 +13,7 @@ namespace FiverrNotifications.Telegram
             serviceCollection.AddSingleton<MessageSanitizer>();
             serviceCollection.AddSingleton<MessageFactory>();
             serviceCollection.AddSingleton(getResourceResolver);
+            serviceCollection.AddSingleton<MessageSender>();
         }
     }
 }
