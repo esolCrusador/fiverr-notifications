@@ -32,7 +32,7 @@ namespace FiverrNotifications
             services.AddSingleton<ResourceResolver>();
 
             services.BootstrapLogic();
-            services.BootstrapData(s => s.GetRequiredService<IConfiguration>().GetConnectionString("Database"));
+            services.BootstrapData(s => s.GetRequiredService<IConfiguration>().GetConnectionString("FiverrNotifications"));
             services.BootstrapTelegram(s => s.GetRequiredService<ResourceResolver>());
             services.BootstrapFiverrClient();
 

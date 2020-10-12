@@ -6,12 +6,12 @@ namespace FiverrTelegramNotifications.Data
 {
     public class SqlConnectionFactory
     {
-        private readonly string _sqlString;
-        public SqlConnectionFactory(string sqlString) => _sqlString = sqlString;
+        private readonly string _connectionString;
+        public SqlConnectionFactory(string connectionString) => _connectionString = connectionString;
 
         public async Task<SqlConnection> Create()
         {
-            var connection = new SqlConnection(_sqlString);
+            var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             
             return connection;
