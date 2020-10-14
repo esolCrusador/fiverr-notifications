@@ -70,5 +70,10 @@ namespace FiverrNotifications.Logic.Helpers
                 return Task.CompletedTask;
             });
         }
+
+        internal static IObservable<T> FinallyAsync<T>(this IObservable<T> source, Func<Task> action)
+        {
+            return source.Finally(async () => await action());
+        }
     }
 }

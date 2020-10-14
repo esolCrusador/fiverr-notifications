@@ -27,7 +27,6 @@ namespace FiverrNotifications.Logic.Handlers
         private bool _commandInProgress = false;
 
         private readonly Dictionary<string, Func<IObservable<Unit>>> _supportedMessages;
-        private readonly HashSet<string> _exptedCommands;
 
         public AccountSessionHandler(SessionData sessionData, ILogger<AccountSessionHandler> logger, IChatsRepository chatsRepository, SubscriptionFactory subscriptionFactory)
         {
@@ -57,8 +56,6 @@ namespace FiverrNotifications.Logic.Handlers
                 { "/unmute", () => Unmute() },
                 { "/timezone", () => RequestTimezone() },
             };
-
-            _exptedCommands = new HashSet<string>();
         }
 
         private IObservable<Unit> Pause()
@@ -89,61 +86,61 @@ namespace FiverrNotifications.Logic.Handlers
 
         public IObservable<Unit> StartMuteDialog()
         {
-            if (_sessionData.IsMuted)
-                return Observable.FromAsync(async () =>
-                {
-                    await SendMessage(StandardMessage.Muted);
-                });
-
-            int? dialogId = null;
-            Func<Task> deleteDialog = async () =>
-            {
-                if (dialogId.HasValue)
-                    await _sessionData.SessionCommunicator.DeleteMessage(dialogId.Value);
-            };
-
             return Observable.FromAsync(async () =>
-            {
-                dialogId = await _sessionData.SessionCommunicator.SendMessage(new TextTelegramMessage(
-                        "Use /now to mute now. " +
+                await _sessionData.SessionCommunicator.SendMessage(new TextTelegramMessage(
+                        $"Is currently {(_sessionData.IsMuted ? "Muted" : "Not Muted")}" +
                         (_sessionData.MutePeriod.HasValue
-                        ? $"Mute period is: {_sessionData.MutePeriod.ToTimeString(_sessionData.TimeZoneId)}.\r\nUse /period to update mute period. Use /remove to remove mute period."
-                        : $"Use /period to set mute period."
-                        ) +
-                        "\r\nUse /cancel to exit."
+                        ? $"Mute period is: {_sessionData.MutePeriod.ToTimeString(_sessionData.TimeZoneId)}."
+                        : $"Mute period is not set."
+                        )
                     ),
                     !_sessionData.IsCurrentlyMuted
-                );
-            })
-            .Do(_ =>
+                )
+            )
+            .Select(_ =>
             {
-                _commandInProgress = true;
-                _exptedCommands.Add("/now");
-                _exptedCommands.Add("/period");
-                _exptedCommands.Add("/remove");
-            })
-            .Select(messageId => _sessionData.SessionCommunicator.Messages.FirstAsync())
-            .Concat()
-            .Where(command => _exptedCommands.Contains(command))
-            .Finally(() =>
-            {
-                _commandInProgress = false;
-                _exptedCommands.Clear();
-                deleteDialog();
-            })
-            .Select(command =>
-            {
-                switch (command)
-                {
-                    case "/now":
-                        return Mute();
-                    case "/period":
-                        return ReqeustMutePeriod();
-                    case "/remove":
-                        return RemoveMutePeriod();
-                    default:
-                        throw new NotSupportedException($"Command \"{command}\" is not supported.");
-                }
+                string operationId = Guid.NewGuid().ToString();
+                return Observable.FromAsync(async () =>
+                             {
+                                 var commands = new List<KeyValuePair<string, string>>
+                                 {
+                                    new KeyValuePair<string, string>($"{operationId}:MuteNow", "Mute Now"),
+                                    new KeyValuePair<string, string>($"{operationId}:SetPeriod", "Specify Period"),
+                                 };
+                                 if (_sessionData.MutePeriod.HasValue)
+                                     commands.Add(new KeyValuePair<string, string>($"{operationId}:RemovePeriod", "Remove Period"));
+                                 commands.Add(new KeyValuePair<string, string>($"{operationId}:Cancel", "Cancel"));
+
+                                 return await _sessionData.SessionCommunicator.SendMessage(
+                                     new SelectOptionTelegramMessage("Choose what to do", commands),
+                                    !_sessionData.IsCurrentlyMuted
+                                 );
+                             })
+                .Select(messageId =>
+                    _sessionData.SessionCommunicator.Replies
+                    .Where(r => r.StartsWith(operationId))
+                    .Select(r => r.Substring(r.IndexOf(':') + 1))
+                    .FirstAsync()
+                    .FinallyAsync(() => _sessionData.SessionCommunicator.DeleteMessage(messageId))
+                    .Select(command =>
+                    {
+                        switch (command)
+                        {
+                            case "MuteNow":
+                                return Mute();
+                            case "SetPeriod":
+                                return ReqeustMutePeriod();
+                            case "RemovePeriod":
+                                return RemoveMutePeriod();
+                            case "Cancel":
+                                return Cancel();
+                            default:
+                                throw new NotSupportedException($"Command \"{command}\" is not supported.");
+                        }
+                    })
+                    .Concat()
+                    )
+                .Concat();
             })
             .Concat()
             .TakeUntil(_cancelSubject);
@@ -151,61 +148,61 @@ namespace FiverrNotifications.Logic.Handlers
 
         public IObservable<Unit> StartPauseDialog()
         {
-            if (_sessionData.IsPaused)
-                return Observable.FromAsync(async () =>
-                {
-                    await SendMessage(StandardMessage.Paused);
-                });
-
-            int? dialogId = null;
-            Func<Task> deleteDialog = async () =>
-            {
-                if (dialogId.HasValue)
-                    await _sessionData.SessionCommunicator.DeleteMessage(dialogId.Value);
-            };
-
             return Observable.FromAsync(async () =>
-            {
-                dialogId = await _sessionData.SessionCommunicator.SendMessage(new TextTelegramMessage(
-                        "Use /now to pause now. " +
+                await _sessionData.SessionCommunicator.SendMessage(new TextTelegramMessage(
+                        $"Is currently {(_sessionData.IsPaused ? "Paused" : "Not Paused")}" +
                         (_sessionData.PausePeriod.HasValue
-                        ? $"Pause period is: {_sessionData.PausePeriod.ToTimeString(_sessionData.TimeZoneId)}.\r\nUse /period to update pause period. Use /remove to remove pause period."
-                        : $"Use /period to set pause period."
-                        ) +
-                        "\r\nUse /cancel to exit."
+                        ? $"Pause period is: {_sessionData.PausePeriod.ToTimeString(_sessionData.TimeZoneId)}."
+                        : $"Pause period is not set."
+                        )
                     ),
                     !_sessionData.IsCurrentlyMuted
-                );
-            })
-            .Do(_ =>
+                )
+            )
+            .Select(_ =>
             {
-                _commandInProgress = true;
-                _exptedCommands.Add("/now");
-                _exptedCommands.Add("/period");
-                _exptedCommands.Add("/remove");
-            })
-            .Select(_ => _sessionData.SessionCommunicator.Messages.FirstAsync())
-            .Concat()
-            .Where(command => _exptedCommands.Contains(command))
-            .Finally(() =>
-            {
-                _commandInProgress = false;
-                _exptedCommands.Clear();
-                deleteDialog();
-            })
-            .Select(command =>
-            {
-                switch (command)
+                string operationId = Guid.NewGuid().ToString();
+                return Observable.FromAsync(async () =>
                 {
-                    case "/now":
-                        return Pause();
-                    case "/period":
-                        return ReqeustPausePeriod();
-                    case "/remove":
-                        return RemovePausePeriod();
-                    default:
-                        throw new NotSupportedException($"Command \"{command}\" is not supported.");
-                }
+                    var commands = new List<KeyValuePair<string, string>>
+                                    {
+                                                new KeyValuePair<string, string>($"{operationId}:PauseNow", "Pause Now"),
+                                                new KeyValuePair<string, string>($"{operationId}:SetPeriod", "Specify Period"),
+                                    };
+                    if (_sessionData.PausePeriod.HasValue)
+                        commands.Add(new KeyValuePair<string, string>($"{operationId}:RemovePeriod", "Remove Period"));
+                    commands.Add(new KeyValuePair<string, string>($"{operationId}:Cancel", "Cancel"));
+
+                    return await _sessionData.SessionCommunicator.SendMessage(
+                                    new SelectOptionTelegramMessage("Choose what to do", commands),
+                                    !_sessionData.IsCurrentlyMuted
+                                );
+                })
+                .Select(messageId =>
+                    _sessionData.SessionCommunicator.Replies
+                    .Where(r => r.StartsWith(operationId))
+                    .Select(r => r.Substring(r.IndexOf(':') + 1))
+                    .FirstAsync()
+                    .FinallyAsync(() => _sessionData.SessionCommunicator.DeleteMessage(messageId))
+                    .Select(command =>
+                    {
+                        switch (command)
+                        {
+                            case "PauseNow":
+                                return Pause();
+                            case "SetPeriod":
+                                return ReqeustPausePeriod();
+                            case "RemovePeriod":
+                                return RemovePausePeriod();
+                            case "Cancel":
+                                return Cancel();
+                            default:
+                                throw new NotSupportedException($"Command \"{command}\" is not supported.");
+                        }
+                    })
+                    .Concat()
+                    )
+                .Concat();
             })
             .Concat()
             .TakeUntil(_cancelSubject);
@@ -264,7 +261,6 @@ namespace FiverrNotifications.Logic.Handlers
             return _sessionData.SessionCommunicator.Messages
                 .Where(m => !string.IsNullOrWhiteSpace(m) && m.StartsWith('/')) // Handling commands only
                 .Select(m => m.Trim())
-                .Where(m => !_exptedCommands.Contains(m))
                 .Select(m =>
                     {
                         IObservable<Unit> result;
@@ -368,27 +364,27 @@ namespace FiverrNotifications.Logic.Handlers
               .Select(timezones =>
               {
                   IObservable<string> selectTimezone = null;
-                  var tzRequestId = Guid.NewGuid().ToString();
+                  var operationId = Guid.NewGuid().ToString();
 
                   selectTimezone = Observable.FromAsync(
                     () => _sessionData.SessionCommunicator.SendMessage(
-                        new SelectOptionTelegramMessage("Selezt timezone please", timezones.Select(tz => new KeyValuePair<string, string>($"{tzRequestId}:{tz}", tz))),
+                        new SelectOptionTelegramMessage("Selezt timezone please", timezones.Select(tz => new KeyValuePair<string, string>($"{operationId}:{tz}", tz))),
                         !_sessionData.IsCurrentlyMuted
                     )
                   ).Select(messageId =>
                       _sessionData.SessionCommunicator.Replies
-                      .Where(r => r.StartsWith(tzRequestId))
+                      .Where(r => r.StartsWith(operationId))
                       .FirstAsync()
                       .Select(r => r.Substring(r.IndexOf(':') + 1))
                       .Select(message => timezones.First(tz => tz == message))
                       .Catch<string, Exception>(ex => selectTimezone)
                       .SelectAsync(async tz =>
                       {
-                          await _sessionData.SessionCommunicator.DeleteMessage(messageId);
                           _sessionData.TimeZoneId = tz;
                           await UpdateSession(false);
                           return tz;
                       })
+                      .FinallyAsync(() => _sessionData.SessionCommunicator.DeleteMessage(messageId))
                   )
                   .Concat();
 
