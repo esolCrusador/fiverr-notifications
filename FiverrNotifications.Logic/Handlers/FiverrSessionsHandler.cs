@@ -74,7 +74,7 @@ namespace FiverrNotifications.Logic.Handlers
 
                         var subscription = _interval
                         .Select(interval => sessionsSubj
-                        .Where(session => !session.IsPaused)
+                        .Where(session => !session.IsCurrentlyPaused)
                         .SelectAsync(async session  =>
                         {
                             _logger.LogDebug($"Handling Interval: {TimeSpan.FromTicks(interval)}. Session Data: {System.Text.Json.JsonSerializer.Serialize(session)}");

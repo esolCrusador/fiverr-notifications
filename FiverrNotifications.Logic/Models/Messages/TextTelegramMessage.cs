@@ -1,4 +1,5 @@
 ﻿using FiverrNotifications.Logic.Models.Messages;
+using System;
 using System.Collections.Generic;
 
 namespace FiverrNotifications.Telegram.Models
@@ -16,7 +17,7 @@ namespace FiverrNotifications.Telegram.Models
         }
 
         public override TelegramMessage Clone() => new TextTelegramMessage(Text);
-
         public override TelegramMessage Format(string[] arguments) => new TextTelegramMessage(string.Format(Text, arguments));
+        public override TelegramMessage Sanitize(Func<string, string> escape) => new TextTelegramMessage(escape(Text));
     }
 }

@@ -7,8 +7,10 @@ using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using FiverrNotifications.Logic.Helpers;
 using FiverrNotifications.Logic.Models;
+using FiverrNotifications.Logic.Models.Common;
 using FiverrNotifications.Logic.Models.Messages;
 using FiverrNotifications.Logic.Repositories;
+using FiverrNotifications.Telegram.Models;
 using Microsoft.Extensions.Logging;
 
 namespace FiverrNotifications.Logic.Handlers
@@ -25,6 +27,7 @@ namespace FiverrNotifications.Logic.Handlers
         private bool _commandInProgress = false;
 
         private readonly Dictionary<string, Func<IObservable<Unit>>> _supportedMessages;
+        private readonly HashSet<string> _exptedCommands;
 
         public AccountSessionHandler(SessionData sessionData, ILogger<AccountSessionHandler> logger, IChatsRepository chatsRepository, SubscriptionFactory subscriptionFactory)
         {
@@ -48,12 +51,14 @@ namespace FiverrNotifications.Logic.Handlers
                 {"/session", () => RequestSession()},
                 {"/token", () => RequestAuthToken()},
                 { "/cancel", () => Cancel() },
-                { "/pause", () => Pause() },
+                { "/pause", () => StartPauseDialog() },
                 { "/resume", () => Resume() },
-                { "/mute", () => Mute() },
+                { "/mute", () => StartMuteDialog() },
                 { "/unmute", () => Unmute() },
                 { "/timezone", () => RequestTimezone() },
             };
+
+            _exptedCommands = new HashSet<string>();
         }
 
         private IObservable<Unit> Pause()
@@ -69,9 +74,141 @@ namespace FiverrNotifications.Logic.Handlers
         {
             return Observable.FromAsync(async () =>
             {
-                _sessionData.IsPaused = false;
-                await UpdateSession();
-            }).SelectAsync(_ => SendMessage(StandardMessage.Resumed));
+                if (_sessionData.IsPaused)
+                {
+                    _sessionData.IsPaused = false;
+                    await UpdateSession();
+                    await SendMessage(StandardMessage.Resumed);
+                }
+                else
+                {
+                    await SendMessage(StandardMessage.NotPaused);
+                }
+            });
+        }
+
+        public IObservable<Unit> StartMuteDialog()
+        {
+            if (_sessionData.IsMuted)
+                return Observable.FromAsync(async () =>
+                {
+                    await SendMessage(StandardMessage.Muted);
+                });
+
+            int? dialogId = null;
+            Func<Task> deleteDialog = async () =>
+            {
+                if (dialogId.HasValue)
+                    await _sessionData.SessionCommunicator.DeleteMessage(dialogId.Value);
+            };
+
+            return Observable.FromAsync(async () =>
+            {
+                dialogId = await _sessionData.SessionCommunicator.SendMessage(new TextTelegramMessage(
+                        "Use /now to mute now. " +
+                        (_sessionData.MutePeriod.HasValue
+                        ? $"Mute period is: {_sessionData.MutePeriod.ToTimeString(_sessionData.TimeZoneId)}.\r\nUse /period to update mute period. Use /remove to remove mute period."
+                        : $"Use /period to set mute period."
+                        ) +
+                        "\r\nUse /cancel to exit."
+                    ),
+                    !_sessionData.IsCurrentlyMuted
+                );
+            })
+            .Do(_ =>
+            {
+                _commandInProgress = true;
+                _exptedCommands.Add("/now");
+                _exptedCommands.Add("/period");
+                _exptedCommands.Add("/remove");
+            })
+            .Select(messageId => _sessionData.SessionCommunicator.Messages.FirstAsync())
+            .Concat()
+            .Where(command => _exptedCommands.Contains(command))
+            .Finally(() =>
+            {
+                _commandInProgress = false;
+                _exptedCommands.Clear();
+                deleteDialog();
+            })
+            .Select(command =>
+            {
+                switch (command)
+                {
+                    case "/now":
+                        return Mute();
+                    case "/period":
+                        return ReqeustMutePeriod();
+                    case "/remove":
+                        return RemoveMutePeriod();
+                    default:
+                        throw new NotSupportedException($"Command \"{command}\" is not supported.");
+                }
+            })
+            .Concat()
+            .TakeUntil(_cancelSubject);
+        }
+
+        public IObservable<Unit> StartPauseDialog()
+        {
+            if (_sessionData.IsPaused)
+                return Observable.FromAsync(async () =>
+                {
+                    await SendMessage(StandardMessage.Paused);
+                });
+
+            int? dialogId = null;
+            Func<Task> deleteDialog = async () =>
+            {
+                if (dialogId.HasValue)
+                    await _sessionData.SessionCommunicator.DeleteMessage(dialogId.Value);
+            };
+
+            return Observable.FromAsync(async () =>
+            {
+                dialogId = await _sessionData.SessionCommunicator.SendMessage(new TextTelegramMessage(
+                        "Use /now to pause now. " +
+                        (_sessionData.PausePeriod.HasValue
+                        ? $"Pause period is: {_sessionData.PausePeriod.ToTimeString(_sessionData.TimeZoneId)}.\r\nUse /period to update pause period. Use /remove to remove pause period."
+                        : $"Use /period to set pause period."
+                        ) +
+                        "\r\nUse /cancel to exit."
+                    ),
+                    !_sessionData.IsCurrentlyMuted
+                );
+            })
+            .Do(_ =>
+            {
+                _commandInProgress = true;
+                _exptedCommands.Add("/now");
+                _exptedCommands.Add("/period");
+                _exptedCommands.Add("/remove");
+            })
+            .Select(_ => _sessionData.SessionCommunicator.Messages.FirstAsync())
+            .Concat()
+            .Where(command => _exptedCommands.Contains(command))
+            .Finally(() =>
+            {
+                _commandInProgress = false;
+                _exptedCommands.Clear();
+                deleteDialog();
+            })
+            .Select(command =>
+            {
+                switch (command)
+                {
+                    case "/now":
+                        return Pause();
+                    case "/period":
+                        return ReqeustPausePeriod();
+                    case "/remove":
+                        return RemovePausePeriod();
+                    default:
+                        throw new NotSupportedException($"Command \"{command}\" is not supported.");
+                }
+            })
+            .Concat()
+            .TakeUntil(_cancelSubject);
         }
 
         public IObservable<Unit> Mute()
@@ -87,9 +224,17 @@ namespace FiverrNotifications.Logic.Handlers
         {
             return Observable.FromAsync(async () =>
             {
-                _sessionData.IsMuted = false;
-                await UpdateSession();
-            }).SelectAsync(_ => SendMessage(StandardMessage.Unmuted));
+                if (_sessionData.IsMuted)
+                {
+                    _sessionData.IsMuted = false;
+                    await UpdateSession();
+                    await SendMessage(StandardMessage.Unmuted);
+                }
+                else
+                {
+                    await SendMessage(StandardMessage.NotMuted);
+                }
+            });
         }
 
         public void Initialize()
@@ -119,6 +264,7 @@ namespace FiverrNotifications.Logic.Handlers
             return _sessionData.SessionCommunicator.Messages
                 .Where(m => !string.IsNullOrWhiteSpace(m) && m.StartsWith('/')) // Handling commands only
                 .Select(m => m.Trim())
+                .Where(m => !_exptedCommands.Contains(m))
                 .Select(m =>
                     {
                         IObservable<Unit> result;
@@ -204,32 +350,21 @@ namespace FiverrNotifications.Logic.Handlers
 
         public IObservable<Unit> RequestTimezone()
         {
-            IObservable<IReadOnlyCollection<string>> awaitingTimezone = null;
-            awaitingTimezone = _sessionData.SessionCommunicator.Messages
-                .FirstAsync()
-                .Select(timeMessage =>
-                {
-                    var time = DateTime.Parse(timeMessage);
-                    var utc = DateTime.UtcNow;
-                    var offset = Math.Round((time - utc).TotalMinutes / 15) * 15;
-
-                    var timezones = TimeZoneInfo.GetSystemTimeZones()
-                        .Where(tz => tz.BaseUtcOffset.TotalMinutes == offset)
-                        .Select(tz => tz.Id).ToList();
-
-                    return (IReadOnlyCollection<string>)timezones;
-                })
-                .Catch<IReadOnlyCollection<string>, Exception>(ex =>
-                {
-                    return Observable.FromAsync(cancellation => SendMessage(StandardMessage.CouldNotParseTime))
-                        .Select(_ => awaitingTimezone)
-                        .Concat();
-                });
-
             return Observable.FromAsync(cancellation => SendMessage(StandardMessage.LocationForTimezone))
               .Do(_ => _commandInProgress = true)
-              .Select(_ => awaitingTimezone)
+              .Select(_ => RequestTime())
               .Concat()
+              .Select(time =>
+              {
+                  var utc = DateTime.UtcNow;
+                  var offset = Math.Round((time - utc).TotalMinutes / 15) * 15;
+
+                  var timezones = TimeZoneInfo.GetSystemTimeZones()
+                      .Where(tz => tz.BaseUtcOffset.TotalMinutes == offset)
+                      .Select(tz => tz.Id).ToList();
+
+                  return (IReadOnlyCollection<string>)timezones;
+              })
               .Select(timezones =>
               {
                   IObservable<string> selectTimezone = null;
@@ -237,8 +372,8 @@ namespace FiverrNotifications.Logic.Handlers
 
                   selectTimezone = Observable.FromAsync(
                     () => _sessionData.SessionCommunicator.SendMessage(
-                        new SelectOptionTelegramMessage("Selezt timezone please", timezones.Select(tz => new KeyValuePair<string, string>($"{tzRequestId}:{tz}", tz))), 
-                        !_sessionData.IsMuted
+                        new SelectOptionTelegramMessage("Selezt timezone please", timezones.Select(tz => new KeyValuePair<string, string>($"{tzRequestId}:{tz}", tz))),
+                        !_sessionData.IsCurrentlyMuted
                     )
                   ).Select(messageId =>
                       _sessionData.SessionCommunicator.Replies
@@ -250,6 +385,8 @@ namespace FiverrNotifications.Logic.Handlers
                       .SelectAsync(async tz =>
                       {
                           await _sessionData.SessionCommunicator.DeleteMessage(messageId);
+                          _sessionData.TimeZoneId = tz;
+                          await UpdateSession(false);
                           return tz;
                       })
                   )
@@ -263,6 +400,96 @@ namespace FiverrNotifications.Logic.Handlers
               .TakeUntil(_cancelSubject);
         }
 
+        public IObservable<Unit> RequestTimezoneIfNeeded()
+        {
+            if (_sessionData.TimeZoneId != null)
+                return ObservableHelper.One();
+
+            return RequestTimezone();
+        }
+
+        public IObservable<Unit> ReqeustPausePeriod()
+        {
+            return RequestTimezoneIfNeeded()
+                .SelectAsync(async _ => await SendMessage(StandardMessage.RequestPauseFrom))
+                .Do(_ => _commandInProgress = true)
+                .Select(_ =>
+                    RequestTime()
+                    .SelectAsync(async startTime =>
+                    {
+                        await SendMessage(StandardMessage.RequestPauseTo);
+                        return RequestTime().SelectAsync(async endTime =>
+                        {
+                            _sessionData.PausePeriod = new DateTimeRange(startTime, endTime, _sessionData.TimeZoneId);
+                            await UpdateSession();
+                            await SendMessage(StandardMessage.PausePeriodSpecified);
+                        });
+                    }).Concat()
+                ).Concat()
+                .Finally(() => _commandInProgress = false)
+                .TakeUntil(_cancelSubject);
+        }
+
+        public IObservable<Unit> RemovePausePeriod()
+        {
+            return Observable.FromAsync(async () =>
+            {
+                _sessionData.PausePeriod = DateTimeRange.Null;
+                await UpdateSession();
+
+                await SendMessage(StandardMessage.PausePeriodRemoved);
+            });
+        }
+
+        public IObservable<Unit> ReqeustMutePeriod()
+        {
+            return RequestTimezoneIfNeeded()
+                .SelectAsync(async _ => await SendMessage(StandardMessage.RequestMuteFrom))
+                .Do(_ => _commandInProgress = true)
+                .Select(_ =>
+                    RequestTime()
+                    .SelectAsync(async startTime =>
+                    {
+                        await SendMessage(StandardMessage.RequestMuteTo);
+                        return RequestTime().SelectAsync(async endTime =>
+                        {
+                            _sessionData.MutePeriod = new DateTimeRange(startTime, endTime, _sessionData.TimeZoneId);
+                            await UpdateSession();
+                            await SendMessage(StandardMessage.MutePeriodSpecified);
+                        });
+                    }).Concat()
+                ).Concat()
+                .Finally(() => _commandInProgress = false)
+                .TakeUntil(_cancelSubject);
+        }
+
+        public IObservable<Unit> RemoveMutePeriod()
+        {
+            return Observable.FromAsync(async () =>
+            {
+                _sessionData.MutePeriod = DateTimeRange.Null;
+                await UpdateSession();
+
+                await SendMessage(StandardMessage.MutePeriodRemoved);
+            });
+        }
+
+        private IObservable<DateTime> RequestTime()
+        {
+            IObservable<DateTime> awaitingTime = null;
+
+            awaitingTime = _sessionData.SessionCommunicator.Messages
+                .FirstAsync()
+                .Select(timeMessage => DateTime.Parse(timeMessage))
+                .Catch<DateTime, Exception>(ex =>
+                {
+                    return Observable.FromAsync(cancellation => SendMessage(StandardMessage.CouldNotParseTime))
+                        .Select(_ => awaitingTime)
+                        .Concat();
+                });
+
+            return awaitingTime;
+        }
 
         private StoredSession GetStoredSession() =>
             new StoredSession
@@ -272,14 +499,17 @@ namespace FiverrNotifications.Logic.Handlers
                 Session = _sessionData.Session,
                 Token = _sessionData.Token,
                 IsPaused = _sessionData.IsPaused,
-                IsMuted = _sessionData.IsMuted
+                IsMuted = _sessionData.IsCurrentlyMuted,
+                MutePeriod = _sessionData.MutePeriod,
+                PausePeriod = _sessionData.PausePeriod,
+                TimeZoneId = _sessionData.TimeZoneId
             };
 
         private async Task SendMessage(StandardMessage messageType) =>
-            await _sessionData.SessionCommunicator.SendMessage(messageType, !_sessionData.IsMuted);
+            await _sessionData.SessionCommunicator.SendMessage(messageType, !_sessionData.IsCurrentlyMuted);
 
         private async Task SendMessage(StandardMessage messageType, params string[] arguments) =>
-            await _sessionData.SessionCommunicator.SendMessage(messageType, !_sessionData.IsMuted, arguments);
+            await _sessionData.SessionCommunicator.SendMessage(messageType, !_sessionData.IsCurrentlyMuted, arguments);
 
         private async Task UpdateSession(bool notify = true)
         {

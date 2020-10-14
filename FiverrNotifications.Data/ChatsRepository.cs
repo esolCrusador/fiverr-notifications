@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using FiverrNotifications.Logic.Models;
+using FiverrNotifications.Logic.Models.Common;
 using FiverrNotifications.Logic.Repositories;
 using FiverrTelegramNotifications.Data.Models;
 using System.Collections.Generic;
@@ -11,7 +12,7 @@ namespace FiverrTelegramNotifications.Data
 {
     public class ChatsRepository : IChatsRepository
     {
-        private const string SessionSelect = "SELECT s.SessionId, s.ChatId, s.BotId, s.ChatName, s.FiverrUsername, s.FiverrSession, s.FiverrToken, s.IsAuthRequested, s.IsPaused, s.IsMuted FROM fiverr.TelegramBotChat AS s";
+        private const string SessionSelect = "SELECT s.SessionId, s.ChatId, s.BotId, s.ChatName, s.FiverrUsername, s.FiverrSession, s.FiverrToken, s.IsAuthRequested, s.IsPaused, s.IsMuted, s.MuteFrom, s.MuteTo, s.PauseFrom, s.PauseTo, s.TimeZoneId FROM fiverr.TelegramBotChat AS s";
 
         private readonly SqlConnectionFactory _sqlConnectionFactory;
 
@@ -143,7 +144,11 @@ SELECT
 
             await sqlConnection.QueryAsync(
                 "UPDATE s " +
-                "SET FiverrUsername = @fiverrUsername, FiverrSession = @fiverrSession, FiverrToken = @fiverrToken, IsPaused = @isPaused, IsMuted = @isMuted" +
+                "SET FiverrUsername = @fiverrUsername, FiverrSession = @fiverrSession, FiverrToken = @fiverrToken, " +
+                "IsPaused = @isPaused, IsMuted = @isMuted, " +
+                "MuteFrom = @muteFrom, MuteTo = @muteTo, " +
+                "PauseFrom = @pauseFrom, PauseTo = @pauseTo," +
+                "TimeZoneId = @timeZoneId " +
                 "\r\nFROM fiverr.TelegramBotChat AS s" +
                 "\r\n WHERE s.SessionId = @sessionId",
                 new
@@ -153,7 +158,12 @@ SELECT
                     fiverrSession = storedSession.Session,
                     fiverrToken = storedSession.Token,
                     isPaused = storedSession.IsPaused,
-                    isMuted = storedSession.IsMuted
+                    isMuted = storedSession.IsMuted,
+                    muteFrom = storedSession.MutePeriod.From,
+                    muteTo = storedSession.MutePeriod.To,
+                    pauseFrom = storedSession.PausePeriod.From,
+                    pauseTo = storedSession.PausePeriod.To,
+                    timeZoneId = storedSession.TimeZoneId
                 }
             );
         }
@@ -167,7 +177,10 @@ SELECT
             Session = session.FiverrSession,
             Token = session.FiverrToken,
             IsPaused = session.IsPaused,
-            IsMuted = session.IsMuted
+            IsMuted = session.IsMuted,
+            MutePeriod = new DateTimeRange(session.MuteFrom, session.MuteTo, session.TimeZoneId),
+            PausePeriod = new DateTimeRange(session.PauseFrom, session.PauseTo, session.TimeZoneId),
+            TimeZoneId = session.TimeZoneId
         };
 
         private static StoredSessionEntity Map(StoredSession session) => new StoredSessionEntity
@@ -179,7 +192,12 @@ SELECT
             FiverrSession = session.Session,
             FiverrToken = session.Token,
             IsPaused = session.IsPaused,
-            IsMuted = session.IsMuted
+            IsMuted = session.IsMuted,
+            MuteFrom = session.MutePeriod.From?.DateTime,
+            MuteTo = session.MutePeriod.To?.DateTime,
+            PauseFrom = session.PausePeriod.From?.DateTime,
+            PauseTo = session.PausePeriod.To?.DateTime,
+            TimeZoneId = session.TimeZoneId
         };
     }
 }

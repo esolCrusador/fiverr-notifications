@@ -36,7 +36,7 @@ namespace FiverrNotifications.Telegram
 
         public async Task<int> SendMessage(StandardMessage messageType, bool notify)
         {
-            return await SendMessage(_messageFactory.GetStandardMessage(messageType), notify);
+            return await SendMessageInternal(_messageFactory.GetStandardMessage(messageType), notify);
         }
 
         private async Task<int> SendMessage(string message, bool notify)
@@ -46,17 +46,22 @@ namespace FiverrNotifications.Telegram
 
         public async Task<int> SendMessage(TelegramMessage message, bool notify)
         {
-            return await _messageSender.SendMessage(_botClient, _chatId, message, notify);
+            return await SendMessageInternal(message.Sanitize(_messageFactory.Sanitize), notify);
         }
 
         public async Task<int> SendMessage(StandardMessage messageType, bool notify, string[] arguments)
         {
-            return await SendMessage(_messageFactory.GetStandardMessage(messageType, arguments), notify);
+            return await SendMessageInternal(_messageFactory.GetStandardMessage(messageType, arguments), notify);
         }
 
         public async Task DeleteMessage(int messageId)
         {
             await _botClient.DeleteMessageAsync(_chatId, messageId);
+        }
+
+        private async Task<int> SendMessageInternal(TelegramMessage message, bool notify)
+        {
+            return await _messageSender.SendMessage(_botClient, _chatId, message, notify);
         }
     }
 }

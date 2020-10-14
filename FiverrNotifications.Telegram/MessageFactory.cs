@@ -37,11 +37,13 @@ Contact http://t\.me/esolCrusador for more information\."
                 [StandardMessage.Started] = TelegramMessage.TextMessage("Started\\. Use /login to enter [fiverr](https://fiverr\\.com) credentials\\."),
                 [StandardMessage.Stopped] = TelegramMessage.TextMessage("Stopped\\. Session data has been removed\\."),
 
-                [StandardMessage.Paused] = TelegramMessage.TextMessage("Paused\\."),
+                [StandardMessage.Paused] = TelegramMessage.TextMessage("Paused\\. Use /resume to resume\\."),
                 [StandardMessage.Resumed] = TelegramMessage.TextMessage("Resumed\\."),
+                [StandardMessage.NotPaused] = TelegramMessage.TextMessage("Not Paused\\."),
 
-                [StandardMessage.Muted] = TelegramMessage.TextMessage("Muted\\."),
+                [StandardMessage.Muted] = TelegramMessage.TextMessage("Muted\\. Use /unmute to unmute\\."),
                 [StandardMessage.Unmuted] = TelegramMessage.TextMessage("Unmuted\\."),
+                [StandardMessage.NotMuted] = TelegramMessage.TextMessage("Not Muted\\."),
 
                 [StandardMessage.RequestUsername] = TelegramMessage.TextMessage("Please enter fiverr username\\."),
                 [StandardMessage.UsernameSpecified] = TelegramMessage.TextMessage("Usernames was succesfuly specified\\."),
@@ -67,6 +69,16 @@ Contact http://t\.me/esolCrusador for more information\."
                 [StandardMessage.LocationForTimezone] = TelegramMessage.TextMessage("Please provide your local time to calculate your location"),
                 [StandardMessage.TimezoneSpecified] = TelegramMessage.TextMessage("Timezone \"{0}\" successfully specified\\."),
                 [StandardMessage.CouldNotParseTime] = TelegramMessage.TextMessage("Could not parse time\\."),
+
+                [StandardMessage.PausePeriodRemoved] = TelegramMessage.TextMessage("Pause period has been removed\\."),
+                [StandardMessage.RequestPauseFrom] = TelegramMessage.TextMessage("Please enter pause start time\\."),
+                [StandardMessage.RequestPauseTo] = TelegramMessage.TextMessage("Please enter pause end time\\."),
+                [StandardMessage.PausePeriodSpecified] = TelegramMessage.TextMessage("Pause period has been specified\\."),
+
+                [StandardMessage.MutePeriodRemoved] = TelegramMessage.TextMessage("Mute period has been removed\\."),
+                [StandardMessage.RequestMuteFrom] = TelegramMessage.TextMessage("Please enter mute start time\\."),
+                [StandardMessage.RequestMuteTo] = TelegramMessage.TextMessage("Please enter mute end time\\."),
+                [StandardMessage.MutePeriodSpecified] = TelegramMessage.TextMessage("Mute period has been specified\\."),
             };
         }
         public string GetRequestMessage(FiverrRequest request) =>
@@ -85,6 +97,11 @@ Contact http://t\.me/esolCrusador for more information\."
         public TelegramMessage GetStandardMessage(StandardMessage messageType, string[] arguments)
         {
             return GetStandardMessage(messageType).Format(arguments.Select(arg => _messageSanitizer.EscapeString(arg)).ToArray());
+        }
+
+        public string Sanitize(string message)
+        {
+            return _messageSanitizer.EscapeString(message);
         }
     }
 }

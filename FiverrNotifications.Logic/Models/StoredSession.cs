@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FiverrNotifications.Logic.Models.Common;
+using System;
 
 namespace FiverrNotifications.Logic.Models
 {
@@ -12,5 +13,8 @@ namespace FiverrNotifications.Logic.Models
         public int BotId { get; set; }
         public bool IsPaused { get; set; }
         public bool IsMuted { get; set; }
+        public DateTimeRange PausePeriod { get; set; }
+        public DateTimeRange MutePeriod { get; set; }
+        public string TimeZoneId { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using FiverrNotifications.Telegram.Models;
+using System;
 using System.Collections.Generic;
 
 namespace FiverrNotifications.Logic.Models.Messages
@@ -16,6 +17,7 @@ namespace FiverrNotifications.Logic.Models.Messages
         public static TelegramMessage SelectOption(string message, IReadOnlyCollection<KeyValuePair<string, string>> options) => new SelectOptionTelegramMessage(message, options);
 
         public abstract TelegramMessage Clone();
+        public abstract TelegramMessage Sanitize(Func<string, string> escape);
         public abstract TelegramMessage Format(string[] arguments);
     }
 }

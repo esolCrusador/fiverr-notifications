@@ -123,7 +123,10 @@ namespace FiverrNotifications.Telegram
                 IsDeleted = isDeleted,
                 SessionCommunicator = CreateSessionCommunicator(storedSession),
                 IsPaused = storedSession.IsPaused,
-                IsMuted = storedSession.IsMuted
+                IsMuted = storedSession.IsMuted,
+                MutePeriod = storedSession.MutePeriod,
+                PausePeriod = storedSession.PausePeriod,
+                TimeZoneId = storedSession.TimeZoneId
             };
         }
 

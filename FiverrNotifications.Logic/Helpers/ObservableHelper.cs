@@ -54,5 +54,21 @@ namespace FiverrNotifications.Logic.Helpers
                 }
             );
         }
+
+        internal static IObservable<Unit> One()
+        {
+            return Of(Unit.Default);
+        }
+
+        internal static IObservable<TValue> Of<TValue>(TValue value)
+        {
+            return Observable.Create<TValue>(observer =>
+            {
+                observer.OnNext(value);
+                observer.OnCompleted();
+
+                return Task.CompletedTask;
+            });
+        }
     }
 }

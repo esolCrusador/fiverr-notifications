@@ -7,9 +7,11 @@
 
     Resumed,
     Paused,
+    NotPaused,
 
     Muted,
     Unmuted,
+    NotMuted,
 
     RequestUsername,
     UsernameSpecified,
@@ -28,5 +30,15 @@
 
     LocationForTimezone,
     TimezoneSpecified,
-    CouldNotParseTime
+    CouldNotParseTime,
+
+    PausePeriodRemoved,
+    RequestPauseFrom,
+    RequestPauseTo,
+    PausePeriodSpecified,
+
+    MutePeriodRemoved,
+    RequestMuteFrom,
+    RequestMuteTo,
+    MutePeriodSpecified,
 }

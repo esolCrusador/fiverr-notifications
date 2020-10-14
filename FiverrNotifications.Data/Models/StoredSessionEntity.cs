@@ -14,5 +14,10 @@ namespace FiverrTelegramNotifications.Data.Models
         public bool IsAuthRequested { get; set; }
         public bool IsPaused { get; set; }
         public bool IsMuted { get; set; }
+        public DateTime? PauseFrom { get; set; }
+        public DateTime? PauseTo { get; set; }
+        public DateTime? MuteFrom { get; set; }
+        public DateTime? MuteTo { get; set; }
+        public string TimeZoneId { get; set; }
     }
 }
