@@ -74,11 +74,15 @@ Contact http://t\.me/esolCrusador for more information\."
                 [StandardMessage.RequestPauseFrom] = TelegramMessage.TextMessage("Please enter pause start time\\."),
                 [StandardMessage.RequestPauseTo] = TelegramMessage.TextMessage("Please enter pause end time\\."),
                 [StandardMessage.PausePeriodSpecified] = TelegramMessage.TextMessage("Pause period has been specified\\."),
+                [StandardMessage.PausePeriodStarted] = TelegramMessage.TextMessage("Pause period has been started\\."),
+                [StandardMessage.PausePeriodEnded] = TelegramMessage.TextMessage("Pause period has been ended\\."),
 
                 [StandardMessage.MutePeriodRemoved] = TelegramMessage.TextMessage("Mute period has been removed\\."),
                 [StandardMessage.RequestMuteFrom] = TelegramMessage.TextMessage("Please enter mute start time\\."),
                 [StandardMessage.RequestMuteTo] = TelegramMessage.TextMessage("Please enter mute end time\\."),
                 [StandardMessage.MutePeriodSpecified] = TelegramMessage.TextMessage("Mute period has been specified\\."),
+                [StandardMessage.MutePeriodStarted] = TelegramMessage.TextMessage("Mute period has been started\\."),
+                [StandardMessage.MutePeriodEnded] = TelegramMessage.TextMessage("Mute period has been ended\\."),
             };
         }
         public string GetRequestMessage(FiverrRequest request) =>

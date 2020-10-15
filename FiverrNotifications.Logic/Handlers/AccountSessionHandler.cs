@@ -88,7 +88,7 @@ namespace FiverrNotifications.Logic.Handlers
         {
             return Observable.FromAsync(async () =>
                 await _sessionData.SessionCommunicator.SendMessage(new TextTelegramMessage(
-                        $"Is currently {(_sessionData.IsMuted ? "Muted" : "Not Muted")}" +
+                        $"Is currently {(_sessionData.IsMuted ? "Muted" : "Not Muted")}. " +
                         (_sessionData.MutePeriod.HasValue
                         ? $"Mute period is: {_sessionData.MutePeriod.ToTimeString(_sessionData.TimeZoneId)}."
                         : $"Mute period is not set."
@@ -150,7 +150,7 @@ namespace FiverrNotifications.Logic.Handlers
         {
             return Observable.FromAsync(async () =>
                 await _sessionData.SessionCommunicator.SendMessage(new TextTelegramMessage(
-                        $"Is currently {(_sessionData.IsPaused ? "Paused" : "Not Paused")}" +
+                        $"Is currently {(_sessionData.IsPaused ? "Paused" : "Not Paused")}. " +
                         (_sessionData.PausePeriod.HasValue
                         ? $"Pause period is: {_sessionData.PausePeriod.ToTimeString(_sessionData.TimeZoneId)}."
                         : $"Pause period is not set."

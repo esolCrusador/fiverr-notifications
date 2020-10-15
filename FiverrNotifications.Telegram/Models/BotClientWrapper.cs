@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Args;
+using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -46,8 +47,15 @@ namespace FiverrNotifications.Telegram.Models
 
         internal async Task<int> SendTextMessageAsync(long chatId, string message, bool disableWebPagePreview = false, bool disableNotification = false, IReplyMarkup replyMarkup = null)
         {
-            var telegramMessage = await _botClient.SendTextMessageAsync(chatId, message, ParseMode.MarkdownV2, disableWebPagePreview: disableWebPagePreview, disableNotification: disableNotification, replyMarkup: replyMarkup);
-            return telegramMessage.MessageId;
+            try
+            {
+                var telegramMessage = await _botClient.SendTextMessageAsync(chatId, message, ParseMode.MarkdownV2, disableWebPagePreview: disableWebPagePreview, disableNotification: disableNotification, replyMarkup: replyMarkup);
+                return telegramMessage.MessageId;
+            }
+            catch (ApiRequestException exception)
+            {
+                throw new TelegramMessageException($"Could not send message \"{message}\".", exception);
+            }
         }
 
         internal async Task DeleteMessageAsync(long chatId, int messageId)
@@ -77,7 +85,7 @@ namespace FiverrNotifications.Telegram.Models
 
         private void StartReceiving(UpdateType messageType)
         {
-            if (_messageTypes.Contains(messageType)) 
+            if (_messageTypes.Contains(messageType))
                 return;
 
             lock (_messageTypes)
@@ -95,8 +103,15 @@ namespace FiverrNotifications.Telegram.Models
 
         internal async Task<int> SendPhotoAsync(long chatId, InputOnlineFile inputOnlineFile, string text, bool disableNotification = false)
         {
-            var telegramMessage = await _botClient.SendPhotoAsync(chatId, inputOnlineFile, text, ParseMode.MarkdownV2, disableNotification: disableNotification);
-            return telegramMessage.MessageId;
+            try
+            {
+                var telegramMessage = await _botClient.SendPhotoAsync(chatId, inputOnlineFile, text, ParseMode.MarkdownV2, disableNotification: disableNotification);
+                return telegramMessage.MessageId;
+            }
+            catch (ApiRequestException exception)
+            {
+                throw new TelegramMessageException($"Could not send message \"{text}\".", exception);
+            }
         }
 
         private void StopReceiving(UpdateType messageType)

@@ -8,37 +8,38 @@ namespace FiverrNotifications.Logic.Models.Common
         public TimeSpan? FromTimeOfDay { get; }
         public DateTimeOffset? To { get; }
         public TimeSpan? ToTimeOfDay { get; }
+        public TimeZoneInfo TimeZone { get; }
 
         public DateTimeRange(DateTime? from, DateTime? to, string timeZoneId)
         {
-            var timeZone = timeZoneId == null ? null : TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            TimeZone = timeZoneId == null ? null : TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
             if (from.HasValue)
-                From = new DateTimeOffset(from.Value, timeZone.BaseUtcOffset);
+                From = new DateTimeOffset(from.Value, TimeZone.BaseUtcOffset);
             else
                 From = null;
             FromTimeOfDay = From?.TimeOfDay;
 
             if (to.HasValue)
-                To = new DateTimeOffset(to.Value, timeZone.BaseUtcOffset);
+                To = new DateTimeOffset(to.Value, TimeZone.BaseUtcOffset);
             else
                 To = null;
             ToTimeOfDay = To?.TimeOfDay;
         }
 
-        public bool IsInPeriod(DateTime? time = null)
+        public bool IsInTimeRange(DateTime? time = null)
         {
             if (!HasValue)
                 return false;
 
-            time = DateTime.SpecifyKind((time ?? DateTime.Now).ToUniversalTime(), DateTimeKind.Local);
-            TimeSpan timeOfDay = time.Value.Add(From.Value.Offset).TimeOfDay;
+            time = TimeZoneInfo.ConvertTime((time ?? DateTime.UtcNow).ToUniversalTime(), TimeZone);
+            TimeSpan timeOfDay = time.Value.TimeOfDay;
 
             if (FromTimeOfDay < ToTimeOfDay)
                 return FromTimeOfDay <= timeOfDay && timeOfDay <= ToTimeOfDay;
             else // Over night
-                return ToTimeOfDay <= timeOfDay && timeOfDay <= FromTimeOfDay;
+                return FromTimeOfDay <= timeOfDay || timeOfDay <= ToTimeOfDay;
         }
-        public bool HasValue => From.HasValue && To.HasValue;
+        public bool HasValue => From.HasValue && To.HasValue && TimeZone != null;
         public DateTimeRangeValue Value => HasValue ? new DateTimeRangeValue(From.Value, To.Value) : DateTimeRangeValue.Default;
         public static readonly DateTimeRange Null = new DateTimeRange(null, null, null);
 

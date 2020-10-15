@@ -18,17 +18,19 @@ namespace FiverrNotifications.Logic.Handlers
     public class FiverrSessionsHandler : IDisposable
     {
         private readonly ILogger<FiverrSessionsHandler> _logger;
+        private readonly SubscriptionFactory _subscriptionFactory;
         private readonly IFiverrClientFactory _fiverrClientFactory;
         private readonly AccountsHandler _accountsService;
         private readonly IMessagesRepository _messageRepository;
         private readonly Subscription _subscriptions;
         private readonly IObservable<long> _interval;
         private readonly TaskHelper _taskHelper;
-        private readonly ConcurrentDictionary<int, (BehaviorSubject<SessionData> SessionData, IFiverrClient FiverrClient, IDisposable Subscription)> _sessions = new ConcurrentDictionary<int, (BehaviorSubject<SessionData> SessionData, IFiverrClient FiverrClient, IDisposable Subscription)>();
+        private readonly ConcurrentDictionary<int, (BehaviorSubject<SessionData> SessionData, Subscription Subscription)> _sessions = new ConcurrentDictionary<int, (BehaviorSubject<SessionData> SessionData, Subscription Subscription)>();
 
         public FiverrSessionsHandler(ILogger<FiverrSessionsHandler> logger, SubscriptionFactory subscriptionFactory, IFiverrClientFactory fiverrClientFactory, AccountsHandler accountsHandler, IMessagesRepository messageRepository)
         {
             _logger = logger;
+            _subscriptionFactory = subscriptionFactory;
             _fiverrClientFactory = fiverrClientFactory;
             _accountsService = accountsHandler;
             _messageRepository = messageRepository;
@@ -56,9 +58,7 @@ namespace FiverrNotifications.Logic.Handlers
                             if (_sessions.Remove(session.SessionId, out existingSession))
                             {
                                 existingSession.Subscription.Dispose();
-                                existingSession.FiverrClient.Dispose();
                                 _subscriptions.Remove(existingSession.Subscription);
-                                _subscriptions.Remove(existingSession.FiverrClient);
                             }
                         }
                         else
@@ -72,10 +72,10 @@ namespace FiverrNotifications.Logic.Handlers
                         var fiverrClient = _fiverrClientFactory.Create();
                         _subscriptions.Add(fiverrClient);
 
-                        var subscription = _interval
+                        var fetchSubscription = _interval
                         .Select(interval => sessionsSubj
                         .Where(session => !session.IsCurrentlyPaused)
-                        .SelectAsync(async session  =>
+                        .SelectAsync(async session =>
                         {
                             _logger.LogDebug($"Handling Interval: {TimeSpan.FromTicks(interval)}. Session Data: {System.Text.Json.JsonSerializer.Serialize(session)}");
 
@@ -98,7 +98,7 @@ namespace FiverrNotifications.Logic.Handlers
                             {
                                 await session.SessionCommunicator.SendMessage(StandardMessage.WrongCredentials, !session.IsMuted);
                             }
-                            catch(Exception ex)
+                            catch (Exception ex)
                             {
                                 _logger.LogError(ex, ex.Message);
                             }
@@ -113,8 +113,45 @@ namespace FiverrNotifications.Logic.Handlers
                         .LogException(_logger)
                         .Subscribe();
 
+                        var pauseChangedSubscription = _interval
+                            .Select(interval => sessionsSubj)
+                            .Switch()
+                            .Where(session => session.PausePeriod.HasValue && !session.IsPaused)
+                            .DistinctUntilChanged(session => session.PausePeriod.IsInTimeRange())
+                            .SelectAsync(async session =>
+                            {
+                                if (session.PausePeriod.IsInTimeRange())
+                                    await session.SessionCommunicator.SendMessage(StandardMessage.PausePeriodStarted, !session.IsCurrentlyMuted);
+                                else
+                                    await session.SessionCommunicator.SendMessage(StandardMessage.PausePeriodEnded, !session.IsCurrentlyMuted);
+                            })
+                            .LogException(_logger)
+                            .Subscribe();
+
+                        var muteChangedSubscription = _interval
+                            .Select(interval => sessionsSubj)
+                            .Switch()
+                            .Where(session => session.MutePeriod.HasValue && !session.IsMuted)
+                            .DistinctUntilChanged(session => session.MutePeriod.IsInTimeRange())
+                            .SelectAsync(async session =>
+                            {
+                                if (session.MutePeriod.IsInTimeRange())
+                                    await session.SessionCommunicator.SendMessage(StandardMessage.MutePeriodStarted, !session.IsCurrentlyMuted);
+                                else
+                                    await session.SessionCommunicator.SendMessage(StandardMessage.MutePeriodEnded, !session.IsCurrentlyMuted);
+                            })
+                            .LogException(_logger)
+                            .Subscribe();
+
+                        var subscription = _subscriptionFactory.Create();
+                        subscription.Add(fetchSubscription);
+                        subscription.Add(sessionsSubj);
+                        subscription.Add(fiverrClient);
+                        subscription.Add(pauseChangedSubscription);
+                        subscription.Add(muteChangedSubscription);
+
                         _subscriptions.Add(subscription);
-                        _sessions.TryAdd(session.SessionId, (sessionsSubj, fiverrClient, subscription));
+                        _sessions.TryAdd(session.SessionId, (sessionsSubj, subscription));
                     }
                 })
             );

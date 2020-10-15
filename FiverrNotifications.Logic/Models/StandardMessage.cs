@@ -36,9 +36,13 @@
     RequestPauseFrom,
     RequestPauseTo,
     PausePeriodSpecified,
+    PausePeriodStarted,
+    PausePeriodEnded,
 
     MutePeriodRemoved,
     RequestMuteFrom,
     RequestMuteTo,
     MutePeriodSpecified,
+    MutePeriodStarted,
+    MutePeriodEnded
 }
